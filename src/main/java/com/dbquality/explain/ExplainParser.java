@@ -1,28 +1,28 @@
 package com.dbquality.explain;
 
 /**
- * Author: Trinh Quang Lam <br>
- * Created At: 25/05/2026 <br><br>
- * Parses EXPLAIN output from a specific database vendor.<br>
- * Each database has a different EXPLAIN format, so each vendor needs its own parser.<br>
- * If no parser supports the current database, Execution Plan Analysis is silently skipped.<br>
+ * Tác giả: Trinh Quang Lam <br>
+ * Tạo lúc: 25/05/2026 <br><br>
+ * Phân tích kết quả EXPLAIN từ một nhà cung cấp cơ sở dữ liệu cụ thể.<br>
+ * Mỗi cơ sở dữ liệu có một định dạng EXPLAIN khác nhau, vì vậy mỗi nhà cung cấp cần một parser riêng.<br>
+ * Nếu không có parser nào hỗ trợ cơ sở dữ liệu hiện tại, việc phân tích Execution Plan sẽ được bỏ qua một cách âm thầm.<br>
  */
 public interface ExplainParser {
 
   /**
-   * Parses raw EXPLAIN output into a structured result.
+   * Phân tích kết quả EXPLAIN thô thành một kết quả có cấu trúc.
    *
-   * @param explainOutput  raw string returned by the EXPLAIN statement
-   * @return               parsed result containing findings (full table scan, missing index, etc.)
+   * @param explainOutput  chuỗi thô được trả về bởi câu lệnh EXPLAIN
+   * @return               kết quả đã được phân tích chứa các findings (quét toàn bảng, thiếu index, v.v.)
    */
   ExplainResult parse(String explainOutput);
 
   /**
-   * Checks whether this parser supports the given database.
-   * The name is obtained from {@code DatabaseMetaData.getDatabaseProductName()}.
+   * Kiểm tra xem parser này có hỗ trợ cơ sở dữ liệu được cung cấp hay không.
+   * Tên được lấy từ {@code DatabaseMetaData.getDatabaseProductName()}.
    *
-   * @param databaseProductName  e.g. "MySQL", "PostgreSQL", "MariaDB", "Microsoft SQL Server"
-   * @return                     true if this parser can handle the given database
+   * @param databaseProductName  ví dụ: "MySQL", "PostgreSQL", "MariaDB", "Microsoft SQL Server"
+   * @return                     true nếu parser này có thể xử lý cơ sở dữ liệu được cung cấp
    */
   boolean supports(String databaseProductName);
 }
