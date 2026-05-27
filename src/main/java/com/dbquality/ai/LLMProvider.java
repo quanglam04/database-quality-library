@@ -1,31 +1,31 @@
 package com.dbquality.ai;
 
 /**
- * Author: Trinh Quang Lam <br>
- * Created At: 25/06/2026 <br> <br>
- * Defines communication with an LLM provider (OpenAI, Claude, Gemini, etc.). <br>
- * The library builds structured prompts and delegates the actual API call to this interface. <br>
- * If the provider is unavailable, the library falls back to rule-based output silently. <br>
+ * Tác giả: Trinh Quang Lam <br>
+ * Tạo lúc: 25/06/2026 <br> <br>
+ * Định nghĩa giao tiếp với một nhà cung cấp LLM (OpenAI, Claude, Gemini, v.v.). <br>
+ * Thư viện xây dựng các prompt có cấu trúc và ủy quyền việc gọi API thực tế cho interface này. <br>
+ * Nếu nhà cung cấp không khả dụng, thư viện sẽ tự động fallback sang kết quả dựa trên rule một cách âm thầm. <br>
  */
 public interface LLMProvider {
 
   /**
-   * Sends a prompt to the LLM and returns the response.
+   * Gửi một prompt tới LLM và trả về phản hồi.
    *
-   * @param prompt  structured prompt built by the library (schema, slow queries, findings)
-   * @return        plain text or JSON string response from the LLM
+   * @param prompt  prompt có cấu trúc được xây dựng bởi thư viện (schema, slow queries, findings)
+   * @return        phản hồi dạng văn bản thuần hoặc chuỗi JSON từ LLM
    */
   String call(String prompt);
 
   /**
-   * Checks whether this provider is ready to use (e.g. API key is configured).
+   * Kiểm tra xem provider này đã sẵn sàng để sử dụng hay chưa (ví dụ: API key đã được cấu hình).
    *
-   * @return true if the provider can accept requests
+   * @return true nếu provider có thể nhận request
    */
   boolean isAvailable();
 
   /**
-   * @return provider display name (e.g. "OpenAI", "Claude", "Gemini")
+   * @return tên hiển thị của provider (ví dụ: "OpenAI", "Claude", "Gemini")
    */
   String getProviderName();
 }

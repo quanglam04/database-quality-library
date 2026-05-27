@@ -1,5 +1,11 @@
 package com.dbquality.rule;
 
-public class Severity {
-
+/**
+ * Đại diện cho mức độ nghiêm trọng của một vấn đề được phát hiện
+ */
+public enum Severity {
+  CRITICAL,
+  HIGH,
+  MEDIUM,
+  WARNING
 }
