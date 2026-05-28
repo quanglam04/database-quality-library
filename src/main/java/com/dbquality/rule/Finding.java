@@ -11,6 +11,7 @@ public class Finding {
   private String column;
   private String message;
   private String recommendation;
+  private String calledFrom;
 
   private Finding() {}
 
@@ -27,6 +28,10 @@ public class Finding {
     public Builder column(String column) { finding.column = column; return this; }
     public Builder message(String message) { finding.message = message; return this; }
     public Builder recommendation(String recommendation) { finding.recommendation = recommendation; return this; }
+    public Builder calledFrom(String calledFrom) {
+      finding.calledFrom = calledFrom;
+      return this;
+    }
     public Finding build() { return finding; }
   }
 
@@ -36,4 +41,5 @@ public class Finding {
   public String getColumn() { return column; }
   public String getMessage() { return message; }
   public String getRecommendation() { return recommendation; }
+  public String getCalledFrom() { return calledFrom; }
 }
