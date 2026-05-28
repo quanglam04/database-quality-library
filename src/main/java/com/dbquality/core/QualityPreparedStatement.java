@@ -12,6 +12,7 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,18 +37,29 @@ public class QualityPreparedStatement implements PreparedStatement {
 
   // ── Capture stack trace ───────────────────────────────────────────
 
+  private static final List<String> INTERNAL_PREFIXES = List.of(
+      "java.", "javax.", "sun.", "jdk.", "com.sun.",
+      "org.junit.", "org.opentest4j.",
+      "org.apache.maven.", "org.apache.surefire.",
+      "com.intellij.",
+      "org.springframework.",
+      "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
+      "com.mysql.", "org.postgresql.", "org.h2.",
+      "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
+      "com.dbquality.core.QualityDataSource.",    // ← thêm dấu . ở cuối
+      "com.dbquality.core.QualityConnection.",    // ← thêm dấu . ở cuối
+      "com.dbquality.core.QualityPreparedStatement",
+      "com.dbquality.collector.",
+      "com.dbquality.config."
+  );
+
   private String captureCalledFrom() {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
-      if (!className.startsWith("java.")
-          && !className.startsWith("javax.")
-          && !className.startsWith("sun.")
-          && !className.startsWith("org.springframework")
-          && !className.startsWith("com.mysql")
-          && !className.startsWith("org.postgresql")
-          && !className.startsWith("org.h2")
-          && !className.startsWith("com.dbquality")) {
+      boolean isInternal = INTERNAL_PREFIXES.stream()
+          .anyMatch(className::startsWith);
+      if (!isInternal) {
         return className + ":" + frame.getLineNumber()
             + " -> " + frame.getMethodName() + "()";
       }
