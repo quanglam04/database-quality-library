@@ -3,6 +3,7 @@ package com.dbquality.core;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
 
+import com.dbquality.report.DashboardServer;
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -20,6 +21,7 @@ public class QualityDataSource implements DataSource {
   private final DataSource original;
   private final QualityConfig config;
   private final SQLContext sqlContext;
+  private DashboardServer dashboardServer;
 
   public QualityDataSource(DataSource original) {
     this(original, QualityConfig.getDefault());
@@ -29,6 +31,22 @@ public class QualityDataSource implements DataSource {
     this.original = original;
     this.config = config;
     this.sqlContext = new SQLContext();
+
+    if(config.isDashboardEnabled()){
+      this.dashboardServer = new DashboardServer(
+          config,
+          sqlContext,
+          () -> {
+            try { return original.getConnection(); }
+            catch (Exception e) { throw new RuntimeException(e); }
+          }
+      );
+      try {
+        dashboardServer.start();
+      } catch (Exception e) {
+        System.err.println("[DB Quality] Failed to start dashboard: " + e.getMessage());
+      }
+    }
   }
 
   @Override
