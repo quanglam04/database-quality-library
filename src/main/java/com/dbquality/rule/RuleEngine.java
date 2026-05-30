@@ -3,6 +3,10 @@ package com.dbquality.rule;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 
+import com.dbquality.rule.impl.FullTableScanCandidateRule;
+import com.dbquality.rule.impl.MissingIndexSuggestionRule;
+import com.dbquality.rule.impl.SuspiciousDataTypeRule;
+import com.dbquality.rule.impl.UnusedIndexRule;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,6 +79,10 @@ public class RuleEngine {
         .register(new com.dbquality.rule.impl.SelectStarRule())
         .register(new com.dbquality.rule.impl.SlowQueryRule(slowQueryThresholdMs))
         .register(new com.dbquality.rule.impl.NPlusOneRule(nPlusOneThreshold))
-        .register(new com.dbquality.rule.impl.NullableRiskRule());
+        .register(new com.dbquality.rule.impl.NullableRiskRule())
+        .register(new FullTableScanCandidateRule())
+        .register(new UnusedIndexRule())
+        .register(new SuspiciousDataTypeRule())
+        .register(new MissingIndexSuggestionRule());
   }
 }
