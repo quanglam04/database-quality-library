@@ -20,6 +20,8 @@ public class QualityConfig {
   private String aiModel;
   private boolean dashboardEnabled;
   private int dashboardPort;
+  private boolean exportJsonEnabled;
+  private String exportJsonPath;
 
 
   private QualityConfig() {}
@@ -41,6 +43,8 @@ public class QualityConfig {
     config.aiModel = "gpt-4o";
     config.dashboardEnabled = true;
     config.dashboardPort = 9876;
+    config.exportJsonEnabled = true;
+    config.exportJsonPath = "quality-report.json";
     return config;
   }
 
@@ -75,6 +79,10 @@ public class QualityConfig {
           props.getProperty("quality.dashboard.enabled", "true"));
       config.dashboardPort = Integer.parseInt(
           props.getProperty("quality.dashboard.port", "9876"));
+      config.exportJsonEnabled = Boolean.parseBoolean(
+          props.getProperty("quality.export.json.enabled", "false"));
+      config.exportJsonPath = props.getProperty(
+          "quality.export.json.path", "quality-report.json");
     } catch (IOException e) {
       // trong trường hợp không load được file thì làm gì
     }
@@ -87,6 +95,7 @@ public class QualityConfig {
   public static QualityConfig getTestDefault() {
     QualityConfig config = getDefault();
     config.dashboardEnabled = false;
+    config.exportJsonEnabled = false;
     return config;
   }
 
@@ -100,4 +109,6 @@ public class QualityConfig {
   public String getAiModel() { return aiModel; }
   public boolean isDashboardEnabled() { return dashboardEnabled; }
   public int getDashboardPort() { return dashboardPort; }
+  public boolean isExportJsonEnabled() { return exportJsonEnabled; }
+  public String getExportJsonPath() { return exportJsonPath; }
 }
