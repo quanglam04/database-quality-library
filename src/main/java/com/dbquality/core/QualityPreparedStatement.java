@@ -70,6 +70,9 @@ public class QualityPreparedStatement implements PreparedStatement {
   // ── Record SQL execution ──────────────────────────────────────────
 
   private void record(long executionTime, boolean success, String errorMessage) {
+    // Bỏ qua DDL và system queries — chỉ capture DML
+    if (!isApplicationSQL(sql)) return;
+
     sqlContext.add(SQLRecord.builder()
         .sql(sql)
         .parameters(new HashMap<>(parameters))
@@ -79,6 +82,15 @@ public class QualityPreparedStatement implements PreparedStatement {
         .success(success)
         .errorMessage(errorMessage)
         .build());
+  }
+
+  private boolean isApplicationSQL(String sql) {
+    if (sql == null) return false;
+    String upper = sql.trim().toUpperCase();
+    return upper.startsWith("SELECT")
+        || upper.startsWith("INSERT")
+        || upper.startsWith("UPDATE")
+        || upper.startsWith("DELETE");
   }
 
   // ── Intercept execute methods ─────────────────────────────────────
