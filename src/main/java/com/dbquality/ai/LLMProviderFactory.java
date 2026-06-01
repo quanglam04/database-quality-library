@@ -6,7 +6,13 @@ import com.dbquality.ai.impl.OpenAIProvider;
 import com.dbquality.config.QualityConfig;
 
 /**
- * Factory tạo LLMProvider dựa trên config.
+ * Factory tạo {@link LLMProvider} phù hợp dựa trên cấu hình.
+ *
+ * <p>Được gọi nội bộ bởi {@link com.dbquality.report.ReportBuilder}.
+ * Hỗ trợ ba provider: {@code openai} , {@code claude}, {@code gemini}.</p>
+ *
+ * <p>Nếu {@code quality.ai.enabled=false}, {@link #create(QualityConfig)} trả về {@code null}
+ * và thư viện fallback về kết quả rule-based.</p>
  */
 public class LLMProviderFactory {
 
