@@ -60,6 +60,7 @@ public class DashboardServer {
     server.createContext("/metrics", this::handleMetrics);
     server.createContext("/findings", this::handleFindings);
     server.createContext("/report", this::handleReport);
+    server.createContext("/ai-context", this::handleAIContext);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -109,6 +110,18 @@ public class DashboardServer {
     try {
       QualityReport report = buildReport();
       String json = mapper.writeValueAsString(report);
+      sendResponse(exchange, 200, "application/json", json);
+    } catch (Exception e) {
+      sendResponse(exchange, 500, "application/json",
+          "{\"error\": \"" + e.getMessage() + "\"}");
+    }
+  }
+
+  private void handleAIContext(HttpExchange exchange) throws IOException {
+    try {
+      QualityReport report = buildReport();
+      String json = mapper.writeValueAsString(
+          java.util.Map.of("aiContext", report.getAiReadyContext()));
       sendResponse(exchange, 200, "application/json", json);
     } catch (Exception e) {
       sendResponse(exchange, 500, "application/json",
@@ -263,6 +276,24 @@ public class DashboardServer {
                 <div class="empty">Loading...</div>
             </div>
         </div>
+        
+        <!-- AI Context Section -->
+                <div class="card" style="margin-top:16px">
+                    <div style="display:flex; align-items:center; margin-bottom:16px">
+                        <span class="section-title">🤖 AI-Ready Context</span>
+                        <button onclick="copyAIContext()"\s
+                                style="margin-left:auto; background:#6d28d9; color:white; border:none;
+                                       padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px">
+                            📋 Copy
+                        </button>
+                    </div>
+                    <pre id="aiContextBlock"\s
+                         style="background:#0f172a; border:1px solid #334155; border-radius:8px;
+                                padding:16px; font-size:12px; color:#94a3b8; white-space:pre-wrap;
+                                word-break:break-word; max-height:300px; overflow-y:auto; line-height:1.6">
+                        Loading...
+                    </pre>
+                </div>
     </div>
 
     <script>
@@ -290,6 +321,26 @@ public class DashboardServer {
                     '<div class="error">Failed to load data: ' + e.message + '</div>';
             }
         }
+        
+        async function loadAIContext() {
+                    try {
+                        const res = await fetch('/ai-context');
+                        const data = await res.json();
+                        document.getElementById('aiContextBlock').textContent = data.aiContext;
+                    } catch (e) {
+                        document.getElementById('aiContextBlock').textContent = 'Failed to load: ' + e.message;
+                    }
+                }
+                
+                function copyAIContext() {
+                    const text = document.getElementById('aiContextBlock').textContent;
+                    navigator.clipboard.writeText(text).then(() => {
+                        const btn = event.target;
+                        btn.textContent = '✅ Copied!';
+                        setTimeout(() => btn.textContent = '📋 Copy', 2000);
+                    });
+                }
+                
 
         function updateScore(score) {
             const badge = document.getElementById('scoreBadge');
@@ -408,6 +459,7 @@ public class DashboardServer {
 
         // Load ngay khi mở và auto refresh mỗi 5 giây
         loadData();
+        loadAIContext();
         setInterval(loadData, 5000);
     </script>
 </body>
