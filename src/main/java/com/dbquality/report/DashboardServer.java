@@ -36,6 +36,12 @@ public class DashboardServer {
 
   private HttpServer server;
 
+  /**
+   * @param config               cấu hình thư viện — dùng để lấy port và các tham số khác
+   * @param sqlContext           SQL records đã thu thập — phản ánh realtime khi endpoints được gọi
+   * @param connectionSupplier   supplier trả về JDBC connection để thu thập DDL khi build report;
+   *                             sẽ được đóng tự động sau mỗi request
+   */
   public DashboardServer(QualityConfig config,
       SQLContext sqlContext,
       java.util.function.Supplier<Connection> connectionSupplier) {

@@ -18,6 +18,22 @@ import java.util.logging.Logger;
  * Entry point của thư viện.
  * Wrap DataSource gốc để intercept toàn bộ JDBC calls.
  * Ứng dụng sử dụng class này thay cho DataSource gốc mà không cần thay đổi code nghiệp vụ.
+ *
+ * <p><b>Sử dụng cơ bản (Plain Java):</b></p>
+ * <pre>{@code
+ * DataSource original = // HikariCP, c3p0, DBCP...
+ * DataSource ds = new QualityDataSource(original);
+ * // Sử dụng ds thay cho original — code nghiệp vụ không thay đổi
+ * }</pre>
+ *
+ * <p><b>Với Spring Boot:</b> {@link com.dbquality.autoconfigure.QualityAutoConfiguration}
+ * tự động wrap DataSource — không cần khởi tạo thủ công.</p>
+ *
+ * <p>Khi khởi tạo, thư viện sẽ:</p>
+ * <ul>
+ *   <li>Khởi động embedded dashboard tại {@code http://localhost:9876} (nếu enabled)</li>
+ *   <li>Đăng ký shutdown hook để auto-export JSON report khi app dừng (nếu enabled)</li>
+ * </ul>
  */
 public class QualityDataSource implements DataSource {
 
@@ -26,10 +42,26 @@ public class QualityDataSource implements DataSource {
   private final SQLContext sqlContext;
   private DashboardServer dashboardServer;
 
+  /**
+   * Tạo QualityDataSource với config mặc định.
+   *
+   * <p>Dashboard bật tại port {@code 9876}, auto-export JSON khi shutdown.
+   * Dùng {@link #QualityDataSource(DataSource, QualityConfig)} để tuỳ chỉnh.</p>
+   *
+   * @param original DataSource gốc cần wrap (HikariCP, c3p0, DBCP, v.v.)
+   */
   public QualityDataSource(DataSource original) {
     this(original, QualityConfig.getDefault());
   }
 
+  /**
+   * Tạo QualityDataSource với config tuỳ chỉnh.
+   *
+   * @param original DataSource gốc cần wrap
+   * @param config   cấu hình thư viện — dùng {@link QualityConfig#fromClasspath()} để đọc từ
+   *                 {@code application.properties}, hoặc {@link QualityConfig#getTestDefault()}
+   *                 trong unit test để tắt dashboard và export
+   */
   public QualityDataSource(DataSource original, QualityConfig config) {
     this.original = original;
     this.config = config;

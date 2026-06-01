@@ -3,7 +3,7 @@ package com.dbquality.explain.impl;
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainResult;
 
-public class SQLServerExplainParser implements ExplainParser {
+public class OracleExplainParser implements ExplainParser {
 
   @Override
   public ExplainResult parse(String explainOutput) {

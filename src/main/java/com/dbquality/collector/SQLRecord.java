@@ -6,6 +6,13 @@ import java.util.Map;
 /**
  * Đại diện cho một lần thực thi SQL.
  * Được tạo ra mỗi khi một câu SQL được intercept qua QualityDataSource.
+ *
+ * <p>Mỗi instance chứa đủ thông tin để Rule Engine phân tích:
+ * câu SQL gốc, tham số binding, thời gian thực thi, timestamp, stack frame
+ * của code nghiệp vụ gọi SQL ({@code calledFrom}), và trạng thái thành công/thất bại.</p>
+ *
+ * <p>Chỉ DML (SELECT/INSERT/UPDATE/DELETE) được lưu —
+ * DDL và system queries bị lọc bỏ.</p>
  */
 public class SQLRecord {
 
@@ -19,10 +26,16 @@ public class SQLRecord {
 
   private SQLRecord() {}
 
+  /**
+   * @return Builder để tạo instance SQLRecord mới
+   */
   public static Builder builder() {
     return new Builder();
   }
 
+  /**
+   * Builder cho {@link SQLRecord}.
+   */
   public static class Builder {
     private final SQLRecord record = new SQLRecord();
 

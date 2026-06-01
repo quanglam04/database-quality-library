@@ -12,6 +12,10 @@ public class DDLContext {
 
   private final List<Table> tables;
 
+  /**
+   * @param tables danh sách tất cả bảng thu thập được từ DatabaseMetaData,
+   *               mỗi bảng kèm đầy đủ columns, indexes, và foreign keys
+   */
   public DDLContext(List<Table> tables) {
     this.tables = tables;
   }
