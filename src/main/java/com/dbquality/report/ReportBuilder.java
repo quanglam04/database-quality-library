@@ -143,18 +143,22 @@ public class ReportBuilder {
    * Mỗi finding trừ điểm theo severity.
    */
   private int calculateScore(List<Finding> findings) {
-    int score = 100;
+    if (findings.isEmpty()) return 100;
 
-    for (Finding f : findings) {
-      switch (f.getSeverity()) {
-        case CRITICAL -> score -= 20;
-        case HIGH     -> score -= 10;
-        case MEDIUM   -> score -= 5;
-        case WARNING  -> score -= 2;
-      }
-    }
+    // Đếm số findings theo từng severity
+    long critical = findings.stream().filter(f -> f.getSeverity() == Severity.CRITICAL).count();
+    long high     = findings.stream().filter(f -> f.getSeverity() == Severity.HIGH).count();
+    long medium   = findings.stream().filter(f -> f.getSeverity() == Severity.MEDIUM).count();
+    long warning  = findings.stream().filter(f -> f.getSeverity() == Severity.WARNING).count();
 
-    return Math.max(0, score);
+    // Trừ điểm theo severity nhưng có giới hạn tối đa mỗi loại
+    int deduction = 0;
+    deduction += Math.min(critical * 20, 60); // tối đa -60 cho CRITICAL
+    deduction += Math.min(high     * 10, 30); // tối đa -30 cho HIGH
+    deduction += Math.min(medium   *  3, 15); // tối đa -15 cho MEDIUM
+    deduction += Math.min(warning  *  1,  5); // tối đa -5  cho WARNING
+
+    return Math.max(0, 100 - deduction);
   }
 
   // ── AI-ready context ──────────────────────────────────────────────
@@ -162,6 +166,16 @@ public class ReportBuilder {
   private String buildAIContext(DDLContext ddl, SQLContext sql,
       List<Finding> findings, MetricsReport metrics) {
     StringBuilder sb = new StringBuilder();
+
+    // Prompt hướng dẫn AI
+    sb.append("Bạn là chuyên gia database và performance optimization.\n");
+    sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
+    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất\n");
+    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact và độ khó\n");
+    sb.append("3. Ước tính impact của từng vấn đề với hệ thống production\n");
+    sb.append("4. Gợi ý cải thiện schema và query cụ thể kèm SQL mẫu\n");
+    sb.append("5. Nhận xét tổng thể về chất lượng database\n\n");
+    sb.append("---\n\n");
 
     sb.append("=== DATABASE QUALITY REPORT ===\n\n");
 
@@ -221,20 +235,34 @@ public class ReportBuilder {
   private List<String> extractTableNames(String sql) {
     List<String> tables = new ArrayList<>();
     if (sql == null) return tables;
-    String upper = sql.toUpperCase();
-    String[] keywords = {"FROM", "JOIN", "INTO", "UPDATE"};
-    for (String keyword : keywords) {
-      int idx = upper.indexOf(keyword);
-      while (idx >= 0) {
-        String rest = sql.substring(idx + keyword.length()).trim();
-        String[] parts = rest.split("[\\s,;(]");
-        if (parts.length > 0 && !parts[0].isEmpty()) {
-          tables.add(parts[0]);
-        }
-        idx = upper.indexOf(keyword, idx + 1);
+
+    // Regex tìm table name sau FROM/JOIN/INTO/UPDATE
+    // Word boundary \b đảm bảo không match partial word
+    // Loại bỏ subquery. không lấy nếu sau keyword là dấu (
+    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+        "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+        java.util.regex.Pattern.CASE_INSENSITIVE
+    );
+
+    java.util.regex.Matcher matcher = pattern.matcher(sql);
+    while (matcher.find()) {
+      String tableName = matcher.group(1);
+      // Bỏ qua SQL keywords bị nhận nhầm thành table name
+      if (!isSQLKeyword(tableName)) {
+        tables.add(tableName);
       }
     }
     return tables;
+  }
+
+  private boolean isSQLKeyword(String word) {
+    java.util.Set<String> keywords = java.util.Set.of(
+        "SELECT", "WHERE", "AND", "OR", "NOT", "IN", "IS",
+        "NULL", "SET", "VALUES", "ON", "AS", "BY", "ORDER",
+        "GROUP", "HAVING", "LIMIT", "OFFSET", "INNER", "LEFT",
+        "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL"
+    );
+    return keywords.contains(word.toUpperCase());
   }
 
   private boolean isApplicationSQL(String sql) {
