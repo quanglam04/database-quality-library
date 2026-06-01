@@ -48,6 +48,7 @@ public class UnindexedForeignKeyRule implements Rule {
                   + "_" + fk.getColumn().toLowerCase()
                   + " ON " + table.getName()
                   + "(" + fk.getColumn() + ")")
+              .calledFrom("Schema analysis — no call site")
               .build());
         }
       }

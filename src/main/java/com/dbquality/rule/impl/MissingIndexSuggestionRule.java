@@ -64,6 +64,7 @@ public class MissingIndexSuggestionRule implements Rule {
                   + column.getName().toLowerCase()
                   + " ON " + table.getName()
                   + "(" + column.getName() + ")")
+              .calledFrom("Schema analysis — no call site")
               .build());
         }
       }

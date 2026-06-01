@@ -49,6 +49,7 @@ public class NullableRiskRule implements Rule {
                   + " trên bảng " + table.getName()
                   + " được dùng trong WHERE — có thể gây full scan")
               .recommendation("Cân nhắc NOT NULL + DEFAULT hoặc xử lý NULL trong query")
+              .calledFrom("Schema analysis — no call site")
               .build());
         }
       }

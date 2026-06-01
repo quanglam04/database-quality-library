@@ -35,6 +35,7 @@ public class MissingPrimaryKeyRule implements Rule {
             .table(table.getName())
             .message("Bảng " + table.getName() + " không có Primary Key")
             .recommendation("Thêm cột id BIGINT AUTO_INCREMENT PRIMARY KEY")
+            .calledFrom("Schema analysis — no call site")
             .build());
       }
     }
