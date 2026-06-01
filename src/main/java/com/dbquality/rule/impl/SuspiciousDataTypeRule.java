@@ -40,6 +40,7 @@ public class SuspiciousDataTypeRule implements Rule {
               .column(column.getName())
               .message("Cột " + column.getName() + " có kiểu dữ liệu đáng ngờ: " + reason)
               .recommendation(getRecommendation(column))
+              .calledFrom("Schema analysis — no call site")
               .build());
         }
       }
