@@ -167,6 +167,16 @@ public class ReportBuilder {
       List<Finding> findings, MetricsReport metrics) {
     StringBuilder sb = new StringBuilder();
 
+    // Prompt hướng dẫn AI
+    sb.append("Bạn là chuyên gia database và performance optimization.\n");
+    sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
+    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất\n");
+    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact và độ khó\n");
+    sb.append("3. Ước tính impact của từng vấn đề với hệ thống production\n");
+    sb.append("4. Gợi ý cải thiện schema và query cụ thể kèm SQL mẫu\n");
+    sb.append("5. Nhận xét tổng thể về chất lượng database\n\n");
+    sb.append("---\n\n");
+
     sb.append("=== DATABASE QUALITY REPORT ===\n\n");
 
     sb.append("## SCHEMA SUMMARY\n");
