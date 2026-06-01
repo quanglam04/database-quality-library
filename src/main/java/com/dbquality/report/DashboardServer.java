@@ -203,7 +203,7 @@ public class DashboardServer {
 <body>
     <header>
         <div>
-            <h1>🗄️ DB Quality Dashboard</h1>
+            <h1> DB Quality Dashboard</h1>
             <span id="lastUpdate">Loading...</span>
         </div>
         <div id="scoreBadge" class="score-badge">--</div>
@@ -266,6 +266,9 @@ public class DashboardServer {
     </div>
 
     <script>
+            let currentPage = 0;
+            const PAGE_SIZE = 10;
+            let allFindings = [];
         async function loadData() {
             try {
                 const [metricsRes, findingsRes, reportRes] = await Promise.all([
@@ -341,24 +344,67 @@ public class DashboardServer {
         }
 
         function updateFindings(findings) {
-            if (!findings || findings.length === 0) {
-                document.getElementById('findingsList').innerHTML =
-                    '<div class="empty">✅ No findings — looking good!</div>';
-                return;
-            }
-            const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, WARNING: 3 };
-            findings.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
-            document.getElementById('findingsList').innerHTML = findings.map(f => `
-                <div class="finding-item">
-                    <span class="badge ${f.severity}">${f.severity}</span>
-                    <div class="finding-content">
-                        <div class="finding-rule">${f.rule}${f.table ? ' · ' + f.table : ''}${f.column ? '.' + f.column : ''}</div>
-                        <div class="finding-msg">${f.message}</div>
-                        ${f.recommendation ? `<div class="finding-rec">💡 ${f.recommendation}</div>` : ''}
-                        ${f.calledFrom ? `<div class="finding-rec" style="color:#94a3b8">📍 ${f.calledFrom}</div>` : ''}
-                    </div>
-                </div>`).join('');
+                     if (!findings || findings.length === 0) {
+                         document.getElementById('findingsList').innerHTML =
+                             '<div class="empty"> No findings — looking good!</div>';
+                         return;
+                     }
+                     const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, WARNING: 3 };
+                     allFindings = findings.sort((a, b) =>
+                         (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+                     currentPage = 0;
+                     renderPage();
         }
+        function renderPage() {
+                    const start = currentPage * PAGE_SIZE;
+                    const end = start + PAGE_SIZE;
+                    const page = allFindings.slice(start, end);
+                    const total = allFindings.length;
+                
+                    document.getElementById('findingsList').innerHTML = page.map(f => `
+                        <div class="finding-item">
+                            <span class="badge ${f.severity}">${f.severity}</span>
+                            <div class="finding-content">
+                                <div class="finding-rule">${f.rule}${f.table ? ' · ' + f.table : ''}${f.column ? '.' + f.column : ''}</div>
+                                <div class="finding-msg">${f.message}</div>
+                                ${f.recommendation ? `<div class="finding-rec">💡 ${f.recommendation}</div>` : ''}
+                                ${f.calledFrom && f.calledFrom !== 'Schema analysis — no call site'
+                                    ? `<div class="finding-rec" style="color:#94a3b8"> ${f.calledFrom}</div>`
+                                    : f.calledFrom === 'Schema analysis — no call site'
+                                    ? `<div class="finding-rec" style="color:#475569">️ ${f.calledFrom}</div>`
+                                    : ''}
+                            </div>
+                        </div>`).join('');
+                
+                    // Pagination controls
+                    const hasNext = end < total;
+                    const hasPrev = currentPage > 0;
+                    document.getElementById('findingsList').innerHTML += `
+                        <div style="display:flex; align-items:center; justify-content:space-between;
+                                    margin-top:12px; padding-top:12px; border-top:1px solid #334155;">
+                            <span style="font-size:12px; color:#64748b">
+                                Hiển thị ${start + 1}–${Math.min(end, total)} / ${total} findings
+                            </span>
+                            <div style="display:flex; gap:8px;">
+                                ${hasPrev ? `<button onclick="prevPage()" style="background:#1e293b; color:#e2e8f0;
+                                    border:1px solid #334155; padding:6px 12px; border-radius:6px; cursor:pointer">
+                                    ← Trước</button>` : ''}
+                                ${hasNext ? `<button onclick="nextPage()" style="background:#3b82f6; color:white;
+                                    border:none; padding:6px 12px; border-radius:6px; cursor:pointer">
+                                    Tiếp →</button>` : ''}
+                            </div>
+                        </div>`;
+                }
+                
+                function nextPage() {
+                    currentPage++;
+                    renderPage();
+                }
+                
+                function prevPage() {
+                    currentPage--;
+                    renderPage();
+                }
 
         // Load ngay khi mở và auto refresh mỗi 5 giây
         loadData();
