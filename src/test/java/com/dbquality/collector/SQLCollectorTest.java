@@ -25,7 +25,7 @@ class SQLCollectorTest {
     h2.setUser("sa");
     h2.setPassword("");
 
-    qualityDataSource = new QualityDataSource(h2, QualityConfig.getDefault());
+    qualityDataSource = new QualityDataSource(h2, QualityConfig.getTestDefault());
     sqlCollector = new SQLCollector(qualityDataSource.getSqlContext());
 
     // Tạo schema

@@ -28,7 +28,7 @@ class DDLCollectorTest {
     h2.setUser("sa");
     h2.setPassword("");
 
-    qualityDataSource = new QualityDataSource(h2, QualityConfig.getDefault());
+    qualityDataSource = new QualityDataSource(h2, QualityConfig.getTestDefault());
     collector = new DDLCollector();
 
     // Tạo schema test

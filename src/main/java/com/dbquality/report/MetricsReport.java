@@ -1,5 +1,6 @@
 package com.dbquality.report;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 
 /**
@@ -10,6 +11,7 @@ public class MetricsReport {
 
   private int totalSQLIntercepted;
   private int slowQueryCount;
+  @JsonProperty("nPlusOneDetected")
   private int nPlusOneDetected;
   private long p50Latency;
   private long p95Latency;
