@@ -143,18 +143,22 @@ public class ReportBuilder {
    * Mỗi finding trừ điểm theo severity.
    */
   private int calculateScore(List<Finding> findings) {
-    int score = 100;
+    if (findings.isEmpty()) return 100;
 
-    for (Finding f : findings) {
-      switch (f.getSeverity()) {
-        case CRITICAL -> score -= 20;
-        case HIGH     -> score -= 10;
-        case MEDIUM   -> score -= 5;
-        case WARNING  -> score -= 2;
-      }
-    }
+    // Đếm số findings theo từng severity
+    long critical = findings.stream().filter(f -> f.getSeverity() == Severity.CRITICAL).count();
+    long high     = findings.stream().filter(f -> f.getSeverity() == Severity.HIGH).count();
+    long medium   = findings.stream().filter(f -> f.getSeverity() == Severity.MEDIUM).count();
+    long warning  = findings.stream().filter(f -> f.getSeverity() == Severity.WARNING).count();
 
-    return Math.max(0, score);
+    // Trừ điểm theo severity nhưng có giới hạn tối đa mỗi loại
+    int deduction = 0;
+    deduction += Math.min(critical * 20, 60); // tối đa -60 cho CRITICAL
+    deduction += Math.min(high     * 10, 30); // tối đa -30 cho HIGH
+    deduction += Math.min(medium   *  3, 15); // tối đa -15 cho MEDIUM
+    deduction += Math.min(warning  *  1,  5); // tối đa -5  cho WARNING
+
+    return Math.max(0, 100 - deduction);
   }
 
   // ── AI-ready context ──────────────────────────────────────────────
