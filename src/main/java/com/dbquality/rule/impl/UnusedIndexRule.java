@@ -45,8 +45,9 @@ public class UnusedIndexRule implements Rule {
               .severity(getSeverity())
               .table(table.getName())
               .message("Index " + index.getName() + " trên bảng "
-                  + table.getName() + " không được dùng trong session này")
-              .recommendation("Cân nhắc xóa index nếu không cần thiết — "
+                  + table.getName() + " không được dùng trong session này"
+                  + " — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ")
+              .recommendation("Cân nhắc xóa index nếu không cần thiết sau khi verify trên production — "
                   + "index thừa làm chậm INSERT/UPDATE/DELETE")
               .calledFrom("Schema analysis — no call site")
               .build());
