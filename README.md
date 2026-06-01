@@ -118,6 +118,14 @@ quality.ai.enabled=false
 quality.ai.provider=openai        # openai / claude / gemini
 quality.ai.api-key=YOUR_API_KEY
 quality.ai.model=gpt-4o
+
+# Dashboard (default: true)
+quality.dashboard.enabled=true
+quality.dashboard.port=9876
+
+# Auto export JSON khi app shutdown (default: true)
+quality.export.json.enabled=true
+quality.export.json.path=quality-report.json
 ```
 
 ---
@@ -163,6 +171,29 @@ Thư viện chạy 10+ rules để phát hiện các vấn đề chất lượng
 Khi được bật, thư viện tự động gọi LLM provider với structured prompt được build từ report context. LLM trả về recommendations được ưu tiên và gợi ý sửa lỗi.
 
 Nếu AI bị tắt hoặc thiếu API key, thư viện tự động fallback về rule-based output — không throw exception.
+
+---
+
+
+## Dashboard
+
+Khi thư viện khởi động, dashboard tự động chạy tại `http://localhost:9876`.
+
+### Endpoints
+
+| Endpoint | Mô tả |
+|---|---|
+| `GET /` | HTML dashboard realtime |
+| `GET /metrics` | JSON metrics realtime |
+| `GET /findings` | JSON findings realtime |
+| `GET /report` | JSON report đầy đủ |
+| `GET /ai-context` | AI-ready context để copy paste vào LLM |
+
+### Tắt dashboard
+
+```properties
+quality.dashboard.enabled=false
+```
 
 ---
 
@@ -289,6 +320,24 @@ db-quality-library/
 │   └── core/                             # Integration test cho JDBC wrapping
 │
 └── pom.xml
+```
+
+---
+## Export Report
+
+Khi app shutdown, thư viện tự động export report ra file JSON:
+`quality-report.json`
+
+Cấu hình đường dẫn output:
+
+```properties
+quality.export.json.path=my-report.json
+```
+
+Tắt auto export:
+
+```properties
+quality.export.json.enabled=false
 ```
 
 ---
