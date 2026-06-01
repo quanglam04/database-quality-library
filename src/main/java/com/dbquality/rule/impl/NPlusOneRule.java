@@ -3,6 +3,7 @@ package com.dbquality.rule.impl;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ public class NPlusOneRule implements Rule {
 
   @Override
   public String getName() {
-    return "N_PLUS_ONE";
+    return RuleName.NPlusOne;
   }
 
   @Override

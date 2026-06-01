@@ -4,6 +4,7 @@ import com.dbquality.ai.impl.ClaudeProvider;
 import com.dbquality.ai.impl.GeminiProvider;
 import com.dbquality.ai.impl.OpenAIProvider;
 import com.dbquality.config.QualityConfig;
+import com.dbquality.constant.Constant;
 
 /**
  * Factory tạo {@link LLMProvider} phù hợp dựa trên cấu hình.
@@ -29,8 +30,8 @@ public class LLMProviderFactory {
     String model  = config.getAiModel();
 
     return switch (config.getAiProvider().toLowerCase()) {
-      case "claude"  -> new ClaudeProvider(apiKey, model);
-      case "gemini"  -> new GeminiProvider(apiKey, model);
+      case Constant.PROVIDER_CLAUDE  -> new ClaudeProvider(apiKey, model);
+      case Constant.PROVIDER_GEMINI  -> new GeminiProvider(apiKey, model);
       default        -> new OpenAIProvider(apiKey, model); // openai là default
     };
   }

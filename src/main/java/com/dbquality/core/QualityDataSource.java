@@ -1,6 +1,7 @@
 package com.dbquality.core;
 
 import com.dbquality.collector.SQLContext;
+import com.dbquality.config.QualityAutoConfiguration;
 import com.dbquality.config.QualityConfig;
 
 import com.dbquality.report.DashboardServer;
@@ -19,14 +20,8 @@ import java.util.logging.Logger;
  * Wrap DataSource gốc để intercept toàn bộ JDBC calls.
  * Ứng dụng sử dụng class này thay cho DataSource gốc mà không cần thay đổi code nghiệp vụ.
  *
- * <p><b>Sử dụng cơ bản (Plain Java):</b></p>
- * <pre>{@code
- * DataSource original = // HikariCP, c3p0, DBCP...
- * DataSource ds = new QualityDataSource(original);
- * // Sử dụng ds thay cho original — code nghiệp vụ không thay đổi
- * }</pre>
  *
- * <p><b>Với Spring Boot:</b> {@link com.dbquality.autoconfigure.QualityAutoConfiguration}
+ * <p><b>Với Spring Boot:</b> {@link QualityAutoConfiguration}
  * tự động wrap DataSource — không cần khởi tạo thủ công.</p>
  *
  * <p>Khi khởi tạo, thư viện sẽ:</p>

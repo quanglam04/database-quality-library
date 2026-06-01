@@ -3,6 +3,7 @@ package com.dbquality.rule.impl;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -16,7 +17,7 @@ public class SelectStarRule implements Rule {
 
   @Override
   public String getName() {
-    return "SELECT_STAR";
+    return RuleName.SelectStar;
   }
 
   @Override

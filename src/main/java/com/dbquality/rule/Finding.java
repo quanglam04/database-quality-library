@@ -6,15 +6,6 @@ package com.dbquality.rule;
  * <p>Mỗi {@code Finding} chứa đầy đủ thông tin để người dùng hiểu vấn đề là gì,
  * nằm ở đâu trong code/schema, và cách khắc phục. Dùng Builder pattern để tạo instance.</p>
  *
- * <pre>{@code
- * Finding finding = Finding.builder()
- *     .rule("MISSING_PRIMARY_KEY")
- *     .severity(Severity.CRITICAL)
- *     .table("orders")
- *     .message("Bảng orders không có Primary Key")
- *     .recommendation("Thêm cột id BIGINT AUTO_INCREMENT PRIMARY KEY")
- *     .build();
- * }</pre>
  */
 public class Finding {
 

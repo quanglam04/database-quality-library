@@ -2,6 +2,7 @@ package com.dbquality.ai.impl;
 
 import com.dbquality.ai.LLMProvider;
 import com.dbquality.ai.LLMResponse;
+import com.dbquality.constant.Constant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -16,8 +17,7 @@ import java.time.Duration;
  */
 public class GeminiProvider implements LLMProvider {
 
-  private static final String API_URL =
-      "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
+  private static final String API_URL = Constant.GEMINI_API_URL;
 
   private final String apiKey;
   private final String model;

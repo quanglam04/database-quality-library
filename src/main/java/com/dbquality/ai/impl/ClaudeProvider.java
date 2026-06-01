@@ -2,6 +2,7 @@ package com.dbquality.ai.impl;
 
 import com.dbquality.ai.LLMProvider;
 import com.dbquality.ai.LLMResponse;
+import com.dbquality.constant.Constant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -16,8 +17,8 @@ import java.time.Duration;
  */
 public class ClaudeProvider implements LLMProvider {
 
-  private static final String API_URL = "https://api.anthropic.com/v1/messages";
-  private static final String ANTHROPIC_VERSION = "2023-06-01";
+  private static final String API_URL = Constant.CLAUDE_API_URL;
+  private static final String ANTHROPIC_VERSION = Constant.ANTHROPIC_VERSION;
 
   private final String apiKey;
   private final String model;
@@ -53,7 +54,7 @@ public class ClaudeProvider implements LLMProvider {
     try {
       String requestBody = mapper.writeValueAsString(java.util.Map.of(
           "model", model,
-          "max_tokens", 2000,
+          "max_tokens", Constant.DEFAULT_MAX_TOKENS,
           "messages", java.util.List.of(
               java.util.Map.of("role", "user", "content", prompt)
           )
