@@ -61,6 +61,7 @@ public class DashboardServer {
     server.createContext("/findings", this::handleFindings);
     server.createContext("/report", this::handleReport);
     server.createContext("/ai-context", this::handleAIContext);
+    server.createContext("/dashboard.js", this::handleDashboardJS);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -131,6 +132,19 @@ public class DashboardServer {
     } catch (Exception e) {
       sendResponse(exchange, 500, "application/json",
           "{\"error\": \"" + e.getMessage() + "\"}");
+    }
+  }
+
+  private void handleDashboardJS(HttpExchange exchange) throws IOException {
+    try (java.io.InputStream is = getClass()
+        .getClassLoader()
+        .getResourceAsStream("dashboard.js")) {
+      if (is == null) {
+        sendResponse(exchange, 404, "text/plain", "dashboard.js not found");
+        return;
+      }
+      String js = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      sendResponse(exchange, 200, "application/javascript", js);
     }
   }
 
