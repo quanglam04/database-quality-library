@@ -18,13 +18,17 @@ import java.sql.SQLException;
 
 /**
  * Embedded HTTP server cung cấp dashboard realtime.
- * Sử dụng JDK built-in HttpServer — không cần dependency thêm.
  *
- * Endpoints:
- *   GET /          → HTML dashboard
- *   GET /metrics   → JSON metrics realtime
- *   GET /findings  → JSON findings realtime
- *   GET /report    → JSON report đầy đủ
+ * <p>Sử dụng JDK built-in HttpServer nên không cần thêm dependency.</p>
+ *
+ * <p>Các endpoint được hỗ trợ:</p>
+ *
+ * <ul>
+ *   <li><b>GET /</b> - Dashboard HTML</li>
+ *   <li><b>GET /metrics</b> - Metrics realtime (JSON)</li>
+ *   <li><b>GET /findings</b> - Findings realtime (JSON)</li>
+ *   <li><b>GET /report</b> - Báo cáo đầy đủ (JSON)</li>
+ * </ul>
  */
 public class DashboardServer {
 

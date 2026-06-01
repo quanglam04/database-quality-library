@@ -1,8 +1,7 @@
 package com.dbquality.ai;
 
 /**
- * Tác giả: Trinh Quang Lam <br>
- * Tạo lúc: 25/06/2026 <br> <br>
+ * Tạo lúc: 25/06/2026 <br>
  * Định nghĩa giao tiếp với một nhà cung cấp LLM (OpenAI, Claude, Gemini, v.v.). <br>
  * Thư viện xây dựng các prompt có cấu trúc và ủy quyền việc gọi API thực tế cho interface này. <br>
  * Nếu nhà cung cấp không khả dụng, thư viện sẽ tự động fallback sang kết quả dựa trên rule một cách âm thầm. <br>

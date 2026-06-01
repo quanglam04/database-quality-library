@@ -5,6 +5,7 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ public class NullableRiskRule implements Rule {
 
   @Override
   public String getName() {
-    return "NULLABLE_RISK";
+    return RuleName.NullableRisk;
   }
 
   @Override

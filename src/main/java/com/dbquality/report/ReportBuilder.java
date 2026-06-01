@@ -7,6 +7,8 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
+import com.dbquality.constant.Constant;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
 import com.dbquality.rule.Severity;
@@ -155,7 +157,9 @@ public class ReportBuilder {
 
   /**
    * Tính điểm chất lượng tổng thể từ 0-100.
+   *
    * Mỗi finding trừ điểm theo severity.
+   *
    */
   private int calculateScore(List<Finding> findings) {
     if (findings.isEmpty()) return 100;
@@ -176,13 +180,13 @@ public class ReportBuilder {
     return Math.max(0, 100 - deduction);
   }
 
-  // ── AI-ready context ──────────────────────────────────────────────
+  // ── AI context ──────────────────────────────────────────────
 
   private String buildAIContext(DDLContext ddl, SQLContext sql,
       List<Finding> findings, MetricsReport metrics) {
     StringBuilder sb = new StringBuilder();
 
-    // Prompt hướng dẫn AI
+    // Prompt
     sb.append("Bạn là chuyên gia database và performance optimization.\n");
     sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
     sb.append("1. Phân tích các vấn đề nghiêm trọng nhất\n");
@@ -192,7 +196,7 @@ public class ReportBuilder {
     sb.append("5. Nhận xét tổng thể về chất lượng database\n\n");
     sb.append("---\n\n");
 
-    sb.append("=== DATABASE QUALITY REPORT ===\n\n");
+    sb.append(" DATABASE QUALITY REPORT \n\n");
 
     sb.append("## SCHEMA SUMMARY\n");
     sb.append("Tables: ").append(ddl.getTables().size()).append("\n");
@@ -239,12 +243,12 @@ public class ReportBuilder {
   }
 
   private boolean isDDLFinding(Finding f) {
-    return f.getRule().equals("MISSING_PRIMARY_KEY")
-        || f.getRule().equals("UNINDEXED_FOREIGN_KEY")
-        || f.getRule().equals("NULLABLE_RISK")
-        || f.getRule().equals("SUSPICIOUS_DATA_TYPE")
-        || f.getRule().equals("UNUSED_INDEX")
-        || f.getRule().equals("MISSING_INDEX_SUGGESTION");
+    return f.getRule().equals(RuleName.MissingPrimaryKey)
+        || f.getRule().equals(RuleName.UnindexedForeignKey)
+        || f.getRule().equals(RuleName.NullableRisk)
+        || f.getRule().equals(RuleName.SuspiciousDataType)
+        || f.getRule().equals(RuleName.UnusedIndex)
+        || f.getRule().equals(RuleName.MissingIndexSuggestion);
   }
 
   private List<String> extractTableNames(String sql) {

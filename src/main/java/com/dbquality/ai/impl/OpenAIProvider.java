@@ -2,6 +2,7 @@ package com.dbquality.ai.impl;
 
 import com.dbquality.ai.LLMProvider;
 import com.dbquality.ai.LLMResponse;
+import com.dbquality.constant.Constant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -16,7 +17,7 @@ import java.time.Duration;
  */
 public class OpenAIProvider implements LLMProvider {
 
-  private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+  private static final String API_URL = Constant.OPENAI_API_URL;
 
   private final String apiKey;
   private final String model;
@@ -55,8 +56,8 @@ public class OpenAIProvider implements LLMProvider {
           "messages", java.util.List.of(
               java.util.Map.of("role", "user", "content", prompt)
           ),
-          "max_tokens", 2000,
-          "temperature", 0.3
+          "max_tokens", Constant.DEFAULT_MAX_TOKENS,
+          "temperature", Constant.DEFAULT_TEMPERATURE
       ));
 
       HttpRequest request = HttpRequest.newBuilder()

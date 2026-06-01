@@ -1,6 +1,5 @@
-package com.dbquality.autoconfigure;
+package com.dbquality.config;
 
-import com.dbquality.config.QualityConfig;
 import com.dbquality.core.QualityDataSource;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;

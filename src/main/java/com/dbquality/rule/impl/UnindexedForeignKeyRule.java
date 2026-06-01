@@ -5,6 +5,7 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.ForeignKey;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ public class UnindexedForeignKeyRule implements Rule {
 
   @Override
   public String getName() {
-    return "UNINDEXED_FOREIGN_KEY";
+    return RuleName.UnindexedForeignKey;
   }
 
   @Override

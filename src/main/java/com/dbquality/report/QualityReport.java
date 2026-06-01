@@ -42,7 +42,6 @@ public class QualityReport {
     public QualityReport build() { return report; }
   }
 
-  // Getters
   public Instant getReportGeneratedAt() { return reportGeneratedAt; }
   public String getAppName() { return appName; }
   public int getOverallScore() { return overallScore; }
