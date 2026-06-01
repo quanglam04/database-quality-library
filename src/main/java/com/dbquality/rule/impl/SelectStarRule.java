@@ -7,6 +7,7 @@ import com.dbquality.rule.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Phát hiện các câu SQL dùng SELECT * — lấy thừa dữ liệu không cần thiết.
@@ -27,17 +28,21 @@ public class SelectStarRule implements Rule {
   public RuleResult analyze(DDLContext ddl, SQLContext sql) {
     List<Finding> findings = new ArrayList<>();
 
-    for (SQLRecord record : sql.getRecords()) {
-      if (isSelectStar(record.getSql())) {
-        findings.add(Finding.builder()
-            .rule(getName())
-            .severity(getSeverity())
-            .message("Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết")
-            .recommendation("Thay SELECT * bằng danh sách cột cụ thể")
-            .calledFrom(record.getCalledFrom())
-            .build());
-      }
-    }
+    // Group theo SQL pattern chỉ report 1 lần mỗi pattern
+    sql.getRecords().stream()
+        .filter(r -> isSelectStar(r.getSql()))
+        .collect(Collectors.groupingBy(SQLRecord::getSql))
+        .forEach((pattern, records) -> {
+          SQLRecord sample = records.get(0);
+          findings.add(Finding.builder()
+              .rule(getName())
+              .severity(getSeverity())
+              .message("Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết"
+                  + (records.size() > 1 ? " (xuất hiện " + records.size() + " lần)" : ""))
+              .recommendation("Thay SELECT * bằng danh sách cột cụ thể")
+              .calledFrom(sample.getCalledFrom())
+              .build());
+        });
 
     return new RuleResult(findings);
   }
