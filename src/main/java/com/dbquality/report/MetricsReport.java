@@ -39,7 +39,6 @@ public class MetricsReport {
     public MetricsReport build() { return report; }
   }
 
-  // Getters
   public int getTotalSQLIntercepted() { return totalSQLIntercepted; }
   public int getSlowQueryCount() { return slowQueryCount; }
   public int getNPlusOneDetected() { return nPlusOneDetected; }

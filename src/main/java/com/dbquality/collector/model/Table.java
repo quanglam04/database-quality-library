@@ -4,6 +4,7 @@ import java.util.List;
 
 /**
  * Đại diện cho một bảng trong database.
+ * Thu thập từ {@code DatabaseMetaData.getTables()} cùng columns, indexes, và foreign keys.
  */
 public class Table {
 
@@ -12,6 +13,12 @@ public class Table {
   private List<Index> indexes;
   private List<ForeignKey> foreignKeys;
 
+  /**
+   * @param name        tên bảng, ví dụ {@code "orders"}
+   * @param columns     danh sách tất cả cột trong bảng
+   * @param indexes     danh sách tất cả index trong bảng (bao gồm Primary Key index)
+   * @param foreignKeys danh sách tất cả Foreign Key constraints trong bảng
+   */
   public Table(String name, List<Column> columns,
       List<Index> indexes, List<ForeignKey> foreignKeys) {
     this.name = name;
@@ -29,7 +36,6 @@ public class Table {
     return columns.stream().anyMatch(Column::isPrimaryKey);
   }
 
-  // Getters
   public String getName() { return name; }
   public List<Column> getColumns() { return columns; }
   public List<Index> getIndexes() { return indexes; }

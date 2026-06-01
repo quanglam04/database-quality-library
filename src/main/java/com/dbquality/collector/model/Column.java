@@ -10,6 +10,12 @@ public class Column {
   private boolean nullable;
   private boolean primaryKey;
 
+  /**
+   * @param name       tên cột, ví dụ {@code "user_id"}
+   * @param type       kiểu dữ liệu SQL, ví dụ {@code "VARCHAR"}, {@code "BIGINT"}, {@code "DECIMAL"}
+   * @param nullable   {@code true} nếu cột cho phép giá trị NULL
+   * @param primaryKey {@code true} nếu cột thuộc Primary Key của bảng
+   */
   public Column(String name, String type, boolean nullable, boolean primaryKey) {
     this.name = name;
     this.type = type;
@@ -17,7 +23,6 @@ public class Column {
     this.primaryKey = primaryKey;
   }
 
-  // Getters
   public String getName() { return name; }
   public String getType() { return type; }
   public boolean isNullable() { return nullable; }

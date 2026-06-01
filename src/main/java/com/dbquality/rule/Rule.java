@@ -4,29 +4,30 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 
 /**
- * Author: Trinh Quang Lam <br>
- * Created At: 25/05/2026 <br><br>
- * Defines a single quality analysis rule for database interaction.<br>
- * Each rule checks one specific concern (e.g. missing PK, N+1 queries).<br>
+ * Ngày tạo: 25/05/2026 <br><br>
+ * Định nghĩa một rule phân tích chất lượng duy nhất cho tương tác với cơ sở dữ liệu.<br>
+ * Mỗi rule sẽ kiểm tra một vấn đề cụ thể (ví dụ: thiếu khóa chính, truy vấn N+1).<br>
  */
 public interface Rule {
 
   /**
-   * Analyzes database structure and runtime SQL to detect issues.
+   * Phân tích cấu trúc cơ sở dữ liệu và các câu lệnh SQL khi chạy để phát hiện vấn đề.
    *
-   * @param ddl  database structure context (tables, columns, indexes, FKs)
-   * @param sql  runtime SQL context (intercepted queries in current session)
-   * @return     analysis result containing findings and recommendations
+   * @param ddl  ngữ cảnh cấu trúc cơ sở dữ liệu (bảng, cột, chỉ mục, khóa ngoại)
+   * @param sql  ngữ cảnh SQL thời gian chạy (các truy vấn được ghi nhận trong phiên hiện tại)
+   * @return     kết quả phân tích bao gồm các phát hiện và khuyến nghị
    */
   RuleResult analyze(DDLContext ddl, SQLContext sql);
 
   /**
-   * @return rule identifier in UPPER_SNAKE_CASE (e.g. "MISSING_PRIMARY_KEY")
+   * @return định danh của rule theo định dạng UPPER_SNAKE_CASE
+   *         (ví dụ: "MISSING_PRIMARY_KEY")
    */
   String getName();
 
   /**
-   * @return default severity level: CRITICAL, HIGH, MEDIUM, or WARNING
+   * @return mức độ nghiêm trọng mặc định:
+   *         CRITICAL, HIGH, MEDIUM hoặc WARNING
    */
   Severity getSeverity();
 }

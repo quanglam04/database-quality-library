@@ -4,6 +4,7 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ public class SuspiciousDataTypeRule implements Rule {
 
   @Override
   public String getName() {
-    return "SUSPICIOUS_DATA_TYPE";
+    return RuleName.SuspiciousDataType;
   }
 
   @Override

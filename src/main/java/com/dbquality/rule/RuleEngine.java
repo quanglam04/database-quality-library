@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Chạy tất cả các rules đã đăng ký và tổng hợp kết quả.
+ * Chạy tất cả các rules đã đăng ký và tổng hợp kết quả. <br>
  * Mỗi rule phân tích độc lập — kết quả được gộp lại thành danh sách findings.
  */
 public class RuleEngine {

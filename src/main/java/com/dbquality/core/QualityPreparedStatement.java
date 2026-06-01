@@ -46,8 +46,8 @@ public class QualityPreparedStatement implements PreparedStatement {
       "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
       "com.mysql.", "org.postgresql.", "org.h2.",
       "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
-      "com.dbquality.core.QualityDataSource.",    // ← thêm dấu . ở cuối
-      "com.dbquality.core.QualityConnection.",    // ← thêm dấu . ở cuối
+      "com.dbquality.core.QualityDataSource.",
+      "com.dbquality.core.QualityConnection.",
       "com.dbquality.core.QualityPreparedStatement",
       "com.dbquality.collector.",
       "com.dbquality.config."

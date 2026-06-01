@@ -3,6 +3,7 @@ package com.dbquality.rule.impl;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
+import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ public class FullTableScanCandidateRule implements Rule {
 
   @Override
   public String getName() {
-    return "FULL_TABLE_SCAN_CANDIDATE";
+    return RuleName.FullTableScanCandidate;
   }
 
   @Override

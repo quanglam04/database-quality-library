@@ -18,13 +18,17 @@ import java.sql.SQLException;
 
 /**
  * Embedded HTTP server cung cấp dashboard realtime.
- * Sử dụng JDK built-in HttpServer — không cần dependency thêm.
  *
- * Endpoints:
- *   GET /          → HTML dashboard
- *   GET /metrics   → JSON metrics realtime
- *   GET /findings  → JSON findings realtime
- *   GET /report    → JSON report đầy đủ
+ * <p>Sử dụng JDK built-in HttpServer nên không cần thêm dependency.</p>
+ *
+ * <p>Các endpoint được hỗ trợ:</p>
+ *
+ * <ul>
+ *   <li><b>GET /</b> - Dashboard HTML</li>
+ *   <li><b>GET /metrics</b> - Metrics realtime (JSON)</li>
+ *   <li><b>GET /findings</b> - Findings realtime (JSON)</li>
+ *   <li><b>GET /report</b> - Báo cáo đầy đủ (JSON)</li>
+ * </ul>
  */
 public class DashboardServer {
 
@@ -36,6 +40,12 @@ public class DashboardServer {
 
   private HttpServer server;
 
+  /**
+   * @param config               cấu hình thư viện — dùng để lấy port và các tham số khác
+   * @param sqlContext           SQL records đã thu thập — phản ánh realtime khi endpoints được gọi
+   * @param connectionSupplier   supplier trả về JDBC connection để thu thập DDL khi build report;
+   *                             sẽ được đóng tự động sau mỗi request
+   */
   public DashboardServer(QualityConfig config,
       SQLContext sqlContext,
       java.util.function.Supplier<Connection> connectionSupplier) {
@@ -61,6 +71,7 @@ public class DashboardServer {
     server.createContext("/findings", this::handleFindings);
     server.createContext("/report", this::handleReport);
     server.createContext("/ai-context", this::handleAIContext);
+    server.createContext("/dashboard.js", this::handleDashboardJS);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -131,6 +142,19 @@ public class DashboardServer {
     } catch (Exception e) {
       sendResponse(exchange, 500, "application/json",
           "{\"error\": \"" + e.getMessage() + "\"}");
+    }
+  }
+
+  private void handleDashboardJS(HttpExchange exchange) throws IOException {
+    try (java.io.InputStream is = getClass()
+        .getClassLoader()
+        .getResourceAsStream("dashboard.js")) {
+      if (is == null) {
+        sendResponse(exchange, 404, "text/plain", "dashboard.js not found");
+        return;
+      }
+      String js = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      sendResponse(exchange, 200, "application/javascript", js);
     }
   }
 
