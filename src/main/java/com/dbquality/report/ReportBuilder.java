@@ -225,20 +225,34 @@ public class ReportBuilder {
   private List<String> extractTableNames(String sql) {
     List<String> tables = new ArrayList<>();
     if (sql == null) return tables;
-    String upper = sql.toUpperCase();
-    String[] keywords = {"FROM", "JOIN", "INTO", "UPDATE"};
-    for (String keyword : keywords) {
-      int idx = upper.indexOf(keyword);
-      while (idx >= 0) {
-        String rest = sql.substring(idx + keyword.length()).trim();
-        String[] parts = rest.split("[\\s,;(]");
-        if (parts.length > 0 && !parts[0].isEmpty()) {
-          tables.add(parts[0]);
-        }
-        idx = upper.indexOf(keyword, idx + 1);
+
+    // Regex tìm table name sau FROM/JOIN/INTO/UPDATE
+    // Word boundary \b đảm bảo không match partial word
+    // Loại bỏ subquery. không lấy nếu sau keyword là dấu (
+    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+        "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+        java.util.regex.Pattern.CASE_INSENSITIVE
+    );
+
+    java.util.regex.Matcher matcher = pattern.matcher(sql);
+    while (matcher.find()) {
+      String tableName = matcher.group(1);
+      // Bỏ qua SQL keywords bị nhận nhầm thành table name
+      if (!isSQLKeyword(tableName)) {
+        tables.add(tableName);
       }
     }
     return tables;
+  }
+
+  private boolean isSQLKeyword(String word) {
+    java.util.Set<String> keywords = java.util.Set.of(
+        "SELECT", "WHERE", "AND", "OR", "NOT", "IN", "IS",
+        "NULL", "SET", "VALUES", "ON", "AS", "BY", "ORDER",
+        "GROUP", "HAVING", "LIMIT", "OFFSET", "INNER", "LEFT",
+        "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL"
+    );
+    return keywords.contains(word.toUpperCase());
   }
 
   private boolean isApplicationSQL(String sql) {
