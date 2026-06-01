@@ -4,6 +4,9 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
 
 import com.dbquality.report.DashboardServer;
+import com.dbquality.report.JSONExporter;
+import com.dbquality.report.QualityReport;
+import com.dbquality.report.ReportBuilder;
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -47,6 +50,17 @@ public class QualityDataSource implements DataSource {
         System.err.println("[DB Quality] Failed to start dashboard: " + e.getMessage());
       }
     }
+
+    if (config.isExportJsonEnabled()) {
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        try {
+          exportJSON(config.getExportJsonPath());
+        } catch (Exception e) {
+          System.err.println("[DB Quality] Failed to export JSON report: "
+              + e.getMessage());
+        }
+      }));
+    }
   }
 
   @Override
@@ -64,6 +78,20 @@ public class QualityDataSource implements DataSource {
    */
   public SQLContext getSqlContext() {
     return sqlContext;
+  }
+
+  /**
+   * Export report ra file JSON tại đường dẫn chỉ định.
+   *
+   * @param filePath đường dẫn file output, ví dụ "report.json"
+   */
+  public void exportJSON(String filePath) throws Exception {
+    try (java.sql.Connection conn = original.getConnection()) {
+      ReportBuilder builder = new ReportBuilder(config);
+      QualityReport report = builder.build(conn, sqlContext);
+      new JSONExporter().toFile(report, filePath);
+      System.out.println("[DB Quality] Report exported to " + filePath);
+    }
   }
 
   // Delegate các method còn lại về original
