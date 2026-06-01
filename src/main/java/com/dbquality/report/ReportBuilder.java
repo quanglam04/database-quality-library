@@ -1,5 +1,7 @@
 package com.dbquality.report;
 
+import com.dbquality.ai.LLMProvider;
+import com.dbquality.ai.LLMProviderFactory;
 import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
@@ -24,6 +26,7 @@ public class ReportBuilder {
   private final QualityConfig config;
   private final DDLCollector ddlCollector;
   private final RuleEngine ruleEngine;
+  private final LLMProvider llmProvider;
 
   public ReportBuilder(QualityConfig config) {
     this.config = config;
@@ -32,6 +35,7 @@ public class ReportBuilder {
         config.getSlowQueryThresholdMs(),
         config.getNPlusOneThreshold()
     );
+    this.llmProvider = LLMProviderFactory.create(config);
   }
 
   /**
@@ -58,6 +62,16 @@ public class ReportBuilder {
 
     // Build AI-ready context
     String aiContext = buildAIContext(ddlContext, sqlContext, findings, metrics);
+    String aiInsights = null;
+    if (llmProvider != null && llmProvider.isAvailable()) {
+      try {
+        System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
+        aiInsights = llmProvider.call(aiContext);
+        System.out.println("[DB Quality] AI analysis complete.");
+      } catch (Exception e) {
+        System.err.println("[DB Quality] AI call failed: " + e.getMessage());
+      }
+    }
 
     return QualityReport.builder()
         .reportGeneratedAt(Instant.now())
@@ -75,6 +89,7 @@ public class ReportBuilder {
             .collect(Collectors.toList()))
         .metrics(metrics)
         .aiReadyContext(aiContext)
+        .aiInsights(aiInsights)
         .build();
   }
 
