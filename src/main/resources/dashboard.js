@@ -110,7 +110,8 @@ function updateFindings(findings) {
            const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, WARNING: 3 };
            allFindings = findings.sort((a, b) =>
                (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
-           currentPage = 0;
+           const maxPage = Math.max(0, Math.ceil(allFindings.length / PAGE_SIZE) - 1);
+           currentPage = Math.min(currentPage, maxPage);
            renderPage();
 }
 function renderPage() {

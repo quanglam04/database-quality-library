@@ -157,9 +157,7 @@
 <script src="/dashboard.js"></script>
 
 <script>
-  let currentPage = 0;
   const PAGE_SIZE = 10;
-  let allFindings = [];
 async function loadData() {
   try {
       const [metricsRes, findingsRes, reportRes] = await Promise.all([
