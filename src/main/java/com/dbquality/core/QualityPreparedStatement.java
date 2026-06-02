@@ -87,10 +87,33 @@ public class QualityPreparedStatement implements PreparedStatement {
   private boolean isApplicationSQL(String sql) {
     if (sql == null) return false;
     String upper = sql.trim().toUpperCase();
-    return upper.startsWith("SELECT")
+    return (upper.startsWith("SELECT")
         || upper.startsWith("INSERT")
         || upper.startsWith("UPDATE")
-        || upper.startsWith("DELETE");
+        || upper.startsWith("DELETE"))
+        && !isSystemSQL(upper);
+  }
+
+  private boolean isSystemSQL(String upper) {
+    // HikariCP / connection pool health check
+    if (upper.equals("SELECT 1")
+        || upper.equals("SELECT 1 FROM DUAL")
+        || upper.contains("/* PING */")
+        || upper.contains("/* ISVALID */")) return true;
+
+    // Hibernate schema validation
+    if (upper.contains("INFORMATION_SCHEMA")) return true;
+
+    // Flyway
+    if (upper.contains("FLYWAY_SCHEMA_HISTORY")
+        || upper.contains("FLYWAY_SCHEMA_HIST")
+        || upper.contains("SCHEMA_VERSION")) return true;
+
+    // Liquibase
+    if (upper.contains("DATABASECHANGELOG")
+        || upper.contains("DATABASECHANGELOGLOCK")) return true;
+
+    return false;
   }
 
   // ── Intercept execute methods ─────────────────────────────────────
