@@ -43,6 +43,7 @@ public class QualityPreparedStatement implements PreparedStatement {
       "org.apache.maven.", "org.apache.surefire.",
       "com.intellij.",
       "org.springframework.",
+      "org.hibernate.",
       "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
       "com.mysql.", "org.postgresql.", "org.h2.",
       "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
