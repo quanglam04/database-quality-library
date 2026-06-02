@@ -177,7 +177,7 @@ public class QualityStatement implements Statement {
 
     // Hibernate schema validation
     if (upper.contains("INFORMATION_SCHEMA")) return true;
-
+    if (upper.contains("PERFORMANCE_SCHEMA")) return true;
     // Flyway
     if (upper.contains("FLYWAY_SCHEMA_HISTORY")
         || upper.contains("FLYWAY_SCHEMA_HIST")
