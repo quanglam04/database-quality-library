@@ -187,13 +187,13 @@ public class ReportBuilder {
     StringBuilder sb = new StringBuilder();
 
     // Prompt
-    sb.append("Bạn là chuyên gia database và performance optimization.\n");
+    sb.append("Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\n");
     sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
-    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất\n");
-    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact và độ khó\n");
-    sb.append("3. Ước tính impact của từng vấn đề với hệ thống production\n");
-    sb.append("4. Gợi ý cải thiện schema và query cụ thể kèm SQL mẫu\n");
-    sb.append("5. Nhận xét tổng thể về chất lượng database\n\n");
+    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n");
+    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact với production (High/Medium/Low)\n");
+    sb.append("3. Với mỗi vấn đề HIGH priority: cung cấp SQL fix cụ thể hoặc code Java mẫu\n");
+    sb.append("4. Ước tính mức độ cải thiện performance sau khi fix (ví dụ: giảm X% query time)\n");
+    sb.append("5. Nhận xét tổng thể và điểm cần theo dõi lâu dài\n");
     sb.append("---\n\n");
 
     sb.append(" DATABASE QUALITY REPORT \n\n");
