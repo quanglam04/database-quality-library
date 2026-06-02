@@ -157,9 +157,7 @@
 <script src="/dashboard.js"></script>
 
 <script>
-  let currentPage = 0;
   const PAGE_SIZE = 10;
-  let allFindings = [];
 async function loadData() {
   try {
       const [metricsRes, findingsRes, reportRes] = await Promise.all([
@@ -313,15 +311,15 @@ function renderPage() {
               </div>`;
       }
 
-      function nextPage() {
-          currentPage++;
-          renderPage();
-      }
+function nextPage() {
+      currentPage++;
+      renderPage();
+}
 
-      function prevPage() {
-          currentPage--;
-          renderPage();
-      }
+function prevPage() {
+      currentPage--;
+      renderPage();
+}
 
 // Load ngay khi mở và auto refresh mỗi 5 giây
 loadData();
