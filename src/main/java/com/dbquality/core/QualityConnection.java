@@ -72,7 +72,7 @@ public class QualityConnection implements Connection {
 
   @Override
   public Statement createStatement() throws SQLException {
-    return original.createStatement();
+    return new QualityStatement(original.createStatement(), sqlContext, config);
   }
 
   @Override
@@ -161,8 +161,11 @@ public class QualityConnection implements Connection {
   }
 
   @Override
-  public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-    return original.createStatement(resultSetType, resultSetConcurrency);
+  public Statement createStatement(int resultSetType, int resultSetConcurrency)
+      throws SQLException {
+    return new QualityStatement(
+        original.createStatement(resultSetType, resultSetConcurrency),
+        sqlContext, config);
   }
 
   @Override
@@ -214,7 +217,9 @@ public class QualityConnection implements Connection {
   @Override
   public Statement createStatement(int resultSetType, int resultSetConcurrency,
       int resultSetHoldability) throws SQLException {
-    return original.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);
+    return new QualityStatement(
+        original.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability),
+        sqlContext, config);
   }
 
   @Override
