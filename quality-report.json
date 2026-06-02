@@ -1,0 +1,71 @@
+{
+  "reportGeneratedAt" : "2026-06-02T16:14:17.037294200Z",
+  "appName" : null,
+  "overallScore" : 62,
+  "ddlFindings" : [ {
+    "rule" : "MISSING_PRIMARY_KEY",
+    "severity" : "CRITICAL",
+    "table" : "LOGS",
+    "column" : null,
+    "message" : "Bảng LOGS không có Primary Key",
+    "recommendation" : "Thêm cột id BIGINT AUTO_INCREMENT PRIMARY KEY",
+    "calledFrom" : "Schema analysis — no call site"
+  }, {
+    "rule" : "NULLABLE_RISK",
+    "severity" : "WARNING",
+    "table" : "USERS",
+    "column" : "EMAIL",
+    "message" : "Cột nullable EMAIL trên bảng USERS được dùng trong WHERE — có thể gây full scan",
+    "recommendation" : "Cân nhắc NOT NULL + DEFAULT hoặc xử lý NULL trong query",
+    "calledFrom" : "Schema analysis — no call site"
+  }, {
+    "rule" : "UNUSED_INDEX",
+    "severity" : "WARNING",
+    "table" : "ORDERS",
+    "column" : null,
+    "message" : "Index CONSTRAINT_INDEX_8 trên bảng ORDERS không được dùng trong session này — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ",
+    "recommendation" : "Cân nhắc xóa index nếu không cần thiết sau khi verify trên production — index thừa làm chậm INSERT/UPDATE/DELETE",
+    "calledFrom" : "Schema analysis — no call site"
+  } ],
+  "sqlFindings" : [ {
+    "rule" : "SELECT_STAR",
+    "severity" : "MEDIUM",
+    "table" : null,
+    "column" : null,
+    "message" : "Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết (xuất hiện 12 lần)",
+    "recommendation" : "Thay SELECT * bằng danh sách cột cụ thể",
+    "calledFrom" : "com.dbquality.demo.DemoApp:70 -> main()"
+  }, {
+    "rule" : "SELECT_STAR",
+    "severity" : "MEDIUM",
+    "table" : null,
+    "column" : null,
+    "message" : "Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết",
+    "recommendation" : "Thay SELECT * bằng danh sách cột cụ thể",
+    "calledFrom" : "com.dbquality.demo.DemoApp:65 -> main()"
+  }, {
+    "rule" : "N_PLUS_ONE",
+    "severity" : "HIGH",
+    "table" : null,
+    "column" : null,
+    "message" : "Query pattern lặp lại 12 lần — dấu hiệu N+1: SELECT * FROM users WHERE id = 1",
+    "recommendation" : "Dùng JOIN hoặc batch fetch thay vì query trong vòng lặp",
+    "calledFrom" : "com.dbquality.demo.DemoApp:70 -> main()"
+  } ],
+  "topSlowQueries" : [ ],
+  "metrics" : {
+    "totalSQLIntercepted" : 24,
+    "slowQueryCount" : 0,
+    "p50Latency" : 0,
+    "p95Latency" : 2,
+    "p99Latency" : 4,
+    "errorRate" : 0.0,
+    "topTablesByQueryFrequency" : {
+      "USERS" : 24
+    },
+    "nplusOneDetected" : 1,
+    "nPlusOneDetected" : 1
+  },
+  "aiReadyContext" : "Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\nDựa trên báo cáo chất lượng database dưới đây, hãy:\n1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n2. Đề xuất thứ tự ưu tiên fix theo impact với production (High/Medium/Low)\n3. Với mỗi vấn đề HIGH priority: cung cấp SQL fix cụ thể hoặc code Java mẫu\n4. Ước tính mức độ cải thiện performance sau khi fix (ví dụ: giảm X% query time)\n5. Nhận xét tổng thể và điểm cần theo dõi lâu dài\n---\n\n DATABASE QUALITY REPORT \n\n## SCHEMA SUMMARY\nTables: 3\n- LOGS (2 columns, NO PRIMARY KEY)\n- ORDERS (3 columns)\n- USERS (3 columns)\n\n## METRICS\nTotal SQL intercepted: 24\nSlow queries: 0\nN+1 detected: 1\nP50/P95/P99 latency: 0ms / 2ms / 4ms\nError rate: 0.0%\n\n## TOP FINDINGS\n- [CRITICAL] MISSING_PRIMARY_KEY: Bảng LOGS không có Primary Key\n- [HIGH] N_PLUS_ONE: Query pattern lặp lại 12 lần — dấu hiệu N+1: SELECT * FROM users WHERE id = 1\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết (xuất hiện 12 lần)\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết\n- [WARNING] NULLABLE_RISK: Cột nullable EMAIL trên bảng USERS được dùng trong WHERE — có thể gây full scan\n- [WARNING] UNUSED_INDEX: Index CONSTRAINT_INDEX_8 trên bảng ORDERS không được dùng trong session này — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ\n\n## TOP SLOW QUERIES\n- 4ms: SELECT * FROM users\n  Called from: com.dbquality.demo.DemoApp:65 -> main()\n- 2ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n",
+  "aiInsights" : null
+}
