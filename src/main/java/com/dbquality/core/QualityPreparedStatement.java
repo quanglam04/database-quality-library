@@ -37,7 +37,7 @@ public class QualityPreparedStatement implements PreparedStatement {
 
   // ── Capture stack trace ───────────────────────────────────────────
 
-  private static final List<String> INTERNAL_PREFIXES = List.of(
+  public static final List<String> INTERNAL_PREFIXES = List.of(
       "java.", "javax.", "sun.", "jdk.", "com.sun.",
       "org.junit.", "org.opentest4j.",
       "org.apache.maven.", "org.apache.surefire.",
