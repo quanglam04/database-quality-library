@@ -29,6 +29,8 @@ public class ReportBuilder {
   private final DDLCollector ddlCollector;
   private final RuleEngine ruleEngine;
   private final LLMProvider llmProvider;
+  private volatile String cachedAiInsights = null;
+  private volatile boolean aiCallInProgress = false;
 
   public ReportBuilder(QualityConfig config) {
     this.config = config;
@@ -64,16 +66,24 @@ public class ReportBuilder {
 
     // Build AI-ready context
     String aiContext = buildAIContext(ddlContext, sqlContext, findings, metrics);
-    String aiInsights = null;
-    if (llmProvider != null && llmProvider.isAvailable()) {
-      try {
-        System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
-        aiInsights = llmProvider.call(aiContext);
-        System.out.println("[DB Quality] AI analysis complete.");
-      } catch (Exception e) {
-        System.err.println("[DB Quality] AI call failed: " + e.getMessage());
-      }
+    boolean hasEnoughData = !findings.isEmpty() || !sqlContext.getRecords().isEmpty();
+    if (llmProvider != null && llmProvider.isAvailable()
+        && cachedAiInsights == null
+        && !aiCallInProgress
+        && hasEnoughData) {
+      aiCallInProgress = true;
+      final String aiContextFinal = aiContext;
+      new Thread(() -> {
+        try {
+          System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
+          cachedAiInsights = llmProvider.call(aiContextFinal);
+          System.out.println("[DB Quality] AI analysis complete.");
+        } finally {
+          aiCallInProgress = false;
+        }
+      }).start();
     }
+    String aiInsights = cachedAiInsights;
 
     return QualityReport.builder()
         .reportGeneratedAt(Instant.now())

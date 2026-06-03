@@ -1,5 +1,5 @@
 {
-  "reportGeneratedAt" : "2026-06-02T16:14:17.037294200Z",
+  "reportGeneratedAt" : "2026-06-02T16:24:41.636592800Z",
   "appName" : null,
   "overallScore" : 62,
   "ddlFindings" : [ {
@@ -57,8 +57,8 @@
     "totalSQLIntercepted" : 24,
     "slowQueryCount" : 0,
     "p50Latency" : 0,
-    "p95Latency" : 2,
-    "p99Latency" : 4,
+    "p95Latency" : 3,
+    "p99Latency" : 6,
     "errorRate" : 0.0,
     "topTablesByQueryFrequency" : {
       "USERS" : 24
@@ -66,6 +66,6 @@
     "nplusOneDetected" : 1,
     "nPlusOneDetected" : 1
   },
-  "aiReadyContext" : "Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\nDựa trên báo cáo chất lượng database dưới đây, hãy:\n1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n2. Đề xuất thứ tự ưu tiên fix theo impact với production (High/Medium/Low)\n3. Với mỗi vấn đề HIGH priority: cung cấp SQL fix cụ thể hoặc code Java mẫu\n4. Ước tính mức độ cải thiện performance sau khi fix (ví dụ: giảm X% query time)\n5. Nhận xét tổng thể và điểm cần theo dõi lâu dài\n---\n\n DATABASE QUALITY REPORT \n\n## SCHEMA SUMMARY\nTables: 3\n- LOGS (2 columns, NO PRIMARY KEY)\n- ORDERS (3 columns)\n- USERS (3 columns)\n\n## METRICS\nTotal SQL intercepted: 24\nSlow queries: 0\nN+1 detected: 1\nP50/P95/P99 latency: 0ms / 2ms / 4ms\nError rate: 0.0%\n\n## TOP FINDINGS\n- [CRITICAL] MISSING_PRIMARY_KEY: Bảng LOGS không có Primary Key\n- [HIGH] N_PLUS_ONE: Query pattern lặp lại 12 lần — dấu hiệu N+1: SELECT * FROM users WHERE id = 1\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết (xuất hiện 12 lần)\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết\n- [WARNING] NULLABLE_RISK: Cột nullable EMAIL trên bảng USERS được dùng trong WHERE — có thể gây full scan\n- [WARNING] UNUSED_INDEX: Index CONSTRAINT_INDEX_8 trên bảng ORDERS không được dùng trong session này — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ\n\n## TOP SLOW QUERIES\n- 4ms: SELECT * FROM users\n  Called from: com.dbquality.demo.DemoApp:65 -> main()\n- 2ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n",
+  "aiReadyContext" : "Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\nDựa trên báo cáo chất lượng database dưới đây, hãy:\n1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n2. Đề xuất thứ tự ưu tiên fix theo impact với production (High/Medium/Low)\n3. Với mỗi vấn đề HIGH priority: cung cấp SQL fix cụ thể hoặc code Java mẫu\n4. Ước tính mức độ cải thiện performance sau khi fix (ví dụ: giảm X% query time)\n5. Nhận xét tổng thể và điểm cần theo dõi lâu dài\n---\n\n DATABASE QUALITY REPORT \n\n## SCHEMA SUMMARY\nTables: 3\n- LOGS (2 columns, NO PRIMARY KEY)\n- ORDERS (3 columns)\n- USERS (3 columns)\n\n## METRICS\nTotal SQL intercepted: 24\nSlow queries: 0\nN+1 detected: 1\nP50/P95/P99 latency: 0ms / 3ms / 6ms\nError rate: 0.0%\n\n## TOP FINDINGS\n- [CRITICAL] MISSING_PRIMARY_KEY: Bảng LOGS không có Primary Key\n- [HIGH] N_PLUS_ONE: Query pattern lặp lại 12 lần — dấu hiệu N+1: SELECT * FROM users WHERE id = 1\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết (xuất hiện 12 lần)\n- [MEDIUM] SELECT_STAR: Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết\n- [WARNING] NULLABLE_RISK: Cột nullable EMAIL trên bảng USERS được dùng trong WHERE — có thể gây full scan\n- [WARNING] UNUSED_INDEX: Index CONSTRAINT_INDEX_8 trên bảng ORDERS không được dùng trong session này — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ\n\n## TOP SLOW QUERIES\n- 6ms: SELECT * FROM users\n  Called from: com.dbquality.demo.DemoApp:65 -> main()\n- 3ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: INSERT INTO users VALUES (?, ?, ?)\n  Called from: com.dbquality.demo.DemoApp:58 -> main()\n- 1ms: SELECT * FROM users WHERE id = 1\n  Called from: com.dbquality.demo.DemoApp:70 -> main()\n",
   "aiInsights" : null
 }
