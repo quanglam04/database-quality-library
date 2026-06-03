@@ -64,7 +64,7 @@ public class GeminiProvider implements LLMProvider {
           .uri(URI.create(url))
           .header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-          .timeout(Duration.ofSeconds(60))
+          .timeout(Duration.ofSeconds(120))
           .build();
 
       HttpResponse<String> response = httpClient.send(request,
