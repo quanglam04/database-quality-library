@@ -66,7 +66,11 @@ public class ReportBuilder {
 
     // Build AI-ready context
     String aiContext = buildAIContext(ddlContext, sqlContext, findings, metrics);
-    if (llmProvider != null && llmProvider.isAvailable() && cachedAiInsights == null && !aiCallInProgress) {
+    boolean hasEnoughData = !findings.isEmpty() || !sqlContext.getRecords().isEmpty();
+    if (llmProvider != null && llmProvider.isAvailable()
+        && cachedAiInsights == null
+        && !aiCallInProgress
+        && hasEnoughData) {
       aiCallInProgress = true;
       final String aiContextFinal = aiContext;
       new Thread(() -> {
