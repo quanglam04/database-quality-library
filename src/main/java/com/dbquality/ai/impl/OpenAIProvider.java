@@ -65,7 +65,7 @@ public class OpenAIProvider implements LLMProvider {
           .header("Content-Type", "application/json")
           .header("Authorization", "Bearer " + apiKey)
           .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-          .timeout(Duration.ofSeconds(60))
+          .timeout(Duration.ofSeconds(120))
           .build();
 
       HttpResponse<String> response = httpClient.send(request,
