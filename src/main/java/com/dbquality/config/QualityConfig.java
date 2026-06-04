@@ -43,7 +43,7 @@ public class QualityConfig {
     config.aiModel = "gpt-4o";
     config.dashboardEnabled = true;
     config.dashboardPort = 9876;
-    config.exportJsonEnabled = true;
+    config.exportJsonEnabled = false;
     config.exportJsonPath = "quality-report.json";
     return config;
   }
