@@ -66,7 +66,7 @@ public class ClaudeProvider implements LLMProvider {
           .header("x-api-key", apiKey)
           .header("anthropic-version", ANTHROPIC_VERSION)
           .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-          .timeout(Duration.ofSeconds(60))
+          .timeout(Duration.ofSeconds(120))
           .build();
 
       HttpResponse<String> response = httpClient.send(request,
