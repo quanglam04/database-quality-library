@@ -157,3 +157,24 @@ tr:hover td { background: #162032; }
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ── Tab navigation ── */
+.tab-nav { background: #1e293b; border-bottom: 1px solid #334155;
+           padding: 0 32px; display: flex; gap: 4px; }
+
+.tab-btn { background: none; border: none; color: #64748b;
+           padding: 14px 20px; font-size: 14px; cursor: pointer;
+           border-bottom: 2px solid transparent; margin-bottom: -1px;
+           transition: color 0.2s, border-color 0.2s; }
+
+.tab-btn:hover  { color: #e2e8f0; }
+
+.tab-btn.active { color: #f1f5f9; border-bottom-color: #3b82f6; font-weight: 500; }
+
+/* ── Tab panels ── */
+.tab-panel { animation: fadeIn 0.15s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
