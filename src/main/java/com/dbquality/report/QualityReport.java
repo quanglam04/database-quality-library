@@ -16,7 +16,7 @@ public class QualityReport {
   private int overallScore;
   private List<Finding> ddlFindings;
   private List<Finding> sqlFindings;
-  private List<SQLRecord> topSlowQueries;
+  private List<SlowQueryReport> slowQueries;
   private MetricsReport metrics;
   private String aiReadyContext;
   private String aiInsights;
@@ -35,7 +35,7 @@ public class QualityReport {
     public Builder overallScore(int v) { report.overallScore = v; return this; }
     public Builder ddlFindings(List<Finding> v) { report.ddlFindings = v; return this; }
     public Builder sqlFindings(List<Finding> v) { report.sqlFindings = v; return this; }
-    public Builder topSlowQueries(List<SQLRecord> v) { report.topSlowQueries = v; return this; }
+    public Builder slowQueries(List<SlowQueryReport> v) { report.slowQueries = v; return this; }
     public Builder metrics(MetricsReport v) { report.metrics = v; return this; }
     public Builder aiReadyContext(String v) { report.aiReadyContext = v; return this; }
     public Builder aiInsights(String v) { report.aiInsights = v; return this; }
@@ -47,7 +47,7 @@ public class QualityReport {
   public int getOverallScore() { return overallScore; }
   public List<Finding> getDdlFindings() { return ddlFindings; }
   public List<Finding> getSqlFindings() { return sqlFindings; }
-  public List<SQLRecord> getTopSlowQueries() { return topSlowQueries; }
+  public List<SlowQueryReport> getSlowQueries() { return slowQueries; }
   public MetricsReport getMetrics() { return metrics; }
   public String getAiReadyContext() { return aiReadyContext; }
   public String getAiInsights() { return aiInsights; }
