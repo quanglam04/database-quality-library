@@ -26,9 +26,19 @@ async function loadData() {
         ' <span class="refresh-indicator" id="refreshDot"></span>';
     }
 
-    if (report.aiInsights) {
-      document.getElementById('aiInsightsSection').style.display = 'block';
-      document.getElementById('aiInsightsContent').innerHTML = marked.parse(report.aiInsights);
+    if (report.aiInsights === '__LOADING__') {
+        document.getElementById('aiInsightsSection').style.display = 'block';
+        document.getElementById('aiInsightsContent').innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px; color:#64748b; padding:12px 0">
+                <div style="width:16px; height:16px; border:2px solid #3b82f6;
+                            border-top-color:transparent; border-radius:50%;
+                            animation:spin 0.8s linear infinite"></div>
+                Đang phân tích với AI, vui lòng chờ...
+            </div>`;
+    } else if (report.aiInsights) {
+        document.getElementById('aiInsightsSection').style.display = 'block';
+        const cleaned = report.aiInsights.replace(/\n{2,}/g, '\n\n').trim();
+        document.getElementById('aiInsightsContent').innerHTML = marked.parse(cleaned);
     }
   } catch (e) {
     document.getElementById('findingsList').innerHTML =
@@ -44,6 +54,24 @@ async function loadAIContext() {
   } catch (e) {
     document.getElementById('aiContextBlock').textContent = 'Failed to load: ' + e.message;
   }
+}
+
+
+async function refreshAI() {
+    const btn = document.getElementById('refreshAIBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang reset...';
+
+    try {
+        await fetch('/ai-refresh', { method: 'POST' });
+        // Trigger loadData ngay để hiện loading state
+        await loadData();
+    } catch (e) {
+        console.error('AI refresh failed:', e);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Refresh AI';
+    }
 }
 
 function copyAIContext() {
