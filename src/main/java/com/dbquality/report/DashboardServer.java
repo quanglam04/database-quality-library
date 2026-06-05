@@ -1,6 +1,7 @@
 package com.dbquality.report;
 
 import com.dbquality.collector.DDLCollector;
+import com.dbquality.collector.ProjectInfoCollector;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +38,7 @@ public class DashboardServer {
   private final ReportBuilder reportBuilder;
   private final ObjectMapper mapper;
   private final java.util.function.Supplier<Connection> connectionSupplier;
-
+  private final ProjectInfoCollector projectInfoCollector;
   private HttpServer server;
 
   /**
@@ -57,6 +58,8 @@ public class DashboardServer {
         .registerModule(new JavaTimeModule())
         .enable(SerializationFeature.INDENT_OUTPUT)
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    this.projectInfoCollector = new ProjectInfoCollector(
+        System.currentTimeMillis(), config.getDashboardPort());
   }
 
   /**
@@ -75,6 +78,7 @@ public class DashboardServer {
     server.createContext("/dashboard.css", this::handleDashboardCSS);
     server.createContext("/ai-refresh", this::handleAIRefresh);
     server.createContext("/slow-queries", this::handleSlowQueries);
+    server.createContext("/project-info", this::handleProjectInfo);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -220,6 +224,17 @@ public class DashboardServer {
     try (java.sql.Connection conn = connectionSupplier.get()) {
       QualityReport report = reportBuilder.build(conn, sqlContext); // ← dùng reportBuilder field
       String json = mapper.writeValueAsString(report.getSlowQueries());
+      sendResponse(exchange, 200, "application/json", json);
+    } catch (Exception e) {
+      sendResponse(exchange, 500, "application/json",
+          "{\"error\":\"" + e.getMessage() + "\"}");
+    }
+  }
+
+  private void handleProjectInfo(HttpExchange exchange) throws IOException {
+    try (java.sql.Connection conn = connectionSupplier.get()) {
+      var info = projectInfoCollector.collect(conn);
+      String json = mapper.writeValueAsString(info);
       sendResponse(exchange, 200, "application/json", json);
     } catch (Exception e) {
       sendResponse(exchange, 500, "application/json",
