@@ -218,8 +218,7 @@ public class DashboardServer {
 
   private void handleSlowQueries(HttpExchange exchange) throws IOException {
     try (java.sql.Connection conn = connectionSupplier.get()) {
-      ReportBuilder builder = new ReportBuilder(config);
-      QualityReport report = builder.build(conn, sqlContext);
+      QualityReport report = reportBuilder.build(conn, sqlContext); // ← dùng reportBuilder field
       String json = mapper.writeValueAsString(report.getSlowQueries());
       sendResponse(exchange, 200, "application/json", json);
     } catch (Exception e) {
