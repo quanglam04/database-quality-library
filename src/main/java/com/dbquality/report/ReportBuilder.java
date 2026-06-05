@@ -13,6 +13,12 @@ import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
 import com.dbquality.rule.Severity;
 
+import com.dbquality.explain.ExplainParser;
+import com.dbquality.explain.ExplainParserFactory;
+import com.dbquality.explain.ExplainResult;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -97,11 +103,7 @@ public class ReportBuilder {
         .sqlFindings(findings.stream()
             .filter(f -> !isDDLFinding(f))
             .collect(Collectors.toList()))
-        .topSlowQueries(sqlContext.getRecords().stream()
-            .filter(r -> r.getExecutionTime() >= config.getSlowQueryThresholdMs())
-            .sorted((a, b) -> Long.compare(b.getExecutionTime(), a.getExecutionTime()))
-            .limit(10)
-            .collect(Collectors.toList()))
+        .slowQueries(buildSlowQueryReports(connection, sqlContext))
         .metrics(metrics)
         .aiReadyContext(aiContext)
         .aiInsights(aiInsights)
@@ -314,5 +316,73 @@ public class ReportBuilder {
         || upper.startsWith("INSERT")
         || upper.startsWith("UPDATE")
         || upper.startsWith("DELETE");
+  }
+
+  private List<SlowQueryReport> buildSlowQueryReports(Connection connection,
+      SQLContext sqlContext) {
+
+    // Lấy top 10 slow queries
+    List<SQLRecord> topSlow = sqlContext.getRecords().stream()
+        .filter(r -> r.getExecutionTime() >= config.getSlowQueryThresholdMs())
+        .sorted((a, b) -> Long.compare(b.getExecutionTime(), a.getExecutionTime()))
+        .limit(10)
+        .collect(Collectors.toList());
+
+    if (topSlow.isEmpty()) return List.of();
+
+    // Tạo ExplainParser phù hợp với DB hiện tại
+    ExplainParser explainParser = null;
+    try {
+      String dbProduct = connection.getMetaData().getDatabaseProductName();
+      explainParser = ExplainParserFactory.create(dbProduct);
+    } catch (Exception ignored) {}
+
+    List<SlowQueryReport> result = new ArrayList<>();
+    for (SQLRecord record : topSlow) {
+      ExplainResult explainResult = runExplain(connection, record.getSql(),
+          explainParser, record.getParameters());
+      result.add(new SlowQueryReport(record, explainResult));
+    }
+    return result;
+  }
+
+  private ExplainResult runExplain(Connection connection, String sql,
+      ExplainParser explainParser, Map<Integer, Object> parameters) {
+
+    if (explainParser == null || sql == null) return null;
+
+    String upper = sql.trim().toUpperCase();
+    if (!upper.startsWith("SELECT") && !upper.startsWith("INSERT")
+        && !upper.startsWith("UPDATE") && !upper.startsWith("DELETE")) {
+      return null;
+    }
+
+    try {
+      String explainSql = "EXPLAIN FORMAT=JSON " + sql;
+      java.sql.PreparedStatement ps = connection.prepareStatement(explainSql);
+      java.sql.ParameterMetaData pmd = ps.getParameterMetaData();
+
+      for (int i = 1; i <= pmd.getParameterCount(); i++) {
+        Object val = parameters != null ? parameters.get(i) : null;
+        if (val == null) {
+          ps.setNull(i, java.sql.Types.VARCHAR); // fallback hợp lý hơn NULL type
+        } else {
+          ps.setObject(i, val);
+        }
+      }
+
+      java.sql.ResultSet rs = ps.executeQuery();
+      if (rs.next()) {
+        ExplainResult result = explainParser.parse(rs.getString(1));
+        rs.close();
+        ps.close();
+        return result;
+      }
+      rs.close();
+      ps.close();
+    } catch (Exception e) {
+      System.out.println("[DB Quality] EXPLAIN failed for query: " + e.getMessage());
+    }
+    return null;
   }
 }

@@ -74,6 +74,7 @@ public class DashboardServer {
     server.createContext("/dashboard.js", this::handleDashboardJS);
     server.createContext("/dashboard.css", this::handleDashboardCSS);
     server.createContext("/ai-refresh", this::handleAIRefresh);
+    server.createContext("/slow-queries", this::handleSlowQueries);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -212,6 +213,17 @@ public class DashboardServer {
         throw new IOException("dashboard.html not found in classpath");
       }
       return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+  }
+
+  private void handleSlowQueries(HttpExchange exchange) throws IOException {
+    try (java.sql.Connection conn = connectionSupplier.get()) {
+      QualityReport report = reportBuilder.build(conn, sqlContext); // ← dùng reportBuilder field
+      String json = mapper.writeValueAsString(report.getSlowQueries());
+      sendResponse(exchange, 200, "application/json", json);
+    } catch (Exception e) {
+      sendResponse(exchange, 500, "application/json",
+          "{\"error\":\"" + e.getMessage() + "\"}");
     }
   }
 }

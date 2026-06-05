@@ -68,7 +68,18 @@
         </table>
       </div>
     </div>
-  </div>
+
+    <!-- Top Slow Queries -->
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title">🐢 Top Slow Queries</span>
+        <span style="font-size:12px; color:#64748b; margin-left:8px">with execution plan</span>
+      </div>
+      <div id="slowQueriesList">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+  </div><!-- end tab-overview -->
 
   <!-- Tab: Findings -->
   <div id="tab-findings" class="tab-panel" style="display:none">
@@ -127,6 +138,31 @@
     </div>
   </div>
 
+</div>
+
+<!-- EXPLAIN Modal -->
+<div id="explainModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+     z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#1e293b; border:1px solid #334155; border-radius:12px;
+              padding:24px; max-width:900px; width:90%; max-height:80vh;
+              overflow-y:auto; position:relative;">
+    <div style="display:flex; align-items:center; margin-bottom:16px">
+      <span style="font-size:16px; font-weight:600; color:#f1f5f9">📋 Execution Plan</span>
+      <button onclick="closeExplainModal()"
+              style="margin-left:auto; background:none; border:none; color:#64748b;
+                     font-size:20px; cursor:pointer; padding:0 4px">✕</button>
+    </div>
+    <div id="explainModalSQL"
+         style="background:#0f172a; border:1px solid #334155; border-radius:6px;
+                padding:10px 14px; font-size:12px; color:#94a3b8; margin-bottom:12px;
+                font-family:monospace; word-break:break-word"></div>
+    <div id="explainModalFindings" style="margin-bottom:12px"></div>
+    <pre id="explainModalRaw"
+         style="background:#0f172a; border:1px solid #334155; border-radius:6px;
+                padding:12px 16px; font-size:11px; color:#64748b; white-space:pre-wrap;
+                word-break:break-word; max-height:300px; overflow-y:auto; line-height:1.5">
+    </pre>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
