@@ -73,8 +73,7 @@ public class ClaudeProvider implements LLMProvider {
           HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() != 200) {
-        return LLMResponse.failure("Claude API error: " + response.statusCode()
-            + " — " + response.body());
+        return LLMResponse.failure(parseErrorMessage("Claude", response.statusCode(), response.body()));
       }
 
       JsonNode json = mapper.readTree(response.body());
@@ -85,5 +84,16 @@ public class ClaudeProvider implements LLMProvider {
     } catch (Exception e) {
       return LLMResponse.failure("Claude call failed: " + e.getMessage());
     }
+  }
+
+  private String parseErrorMessage(String provider, int statusCode, String body) {
+    String friendly = switch (statusCode) {
+      case 429 -> "Đã vượt quota API. Vui lòng thử lại sau.";
+      case 401, 403 -> "API key không hợp lệ hoặc hết hạn.";
+      case 503 -> "Dịch vụ AI tạm thời quá tải. Vui lòng thử lại sau.";
+      case 404 -> "Model không tồn tại. Kiểm tra lại quality.ai.model.";
+      default  -> "Lỗi " + statusCode + ". Vui lòng thử lại sau.";
+    };
+    return "[" + provider + "] " + friendly;
   }
 }

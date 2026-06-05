@@ -73,6 +73,7 @@ public class DashboardServer {
     server.createContext("/ai-context", this::handleAIContext);
     server.createContext("/dashboard.js", this::handleDashboardJS);
     server.createContext("/dashboard.css", this::handleDashboardCSS);
+    server.createContext("/ai-refresh", this::handleAIRefresh);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -121,6 +122,15 @@ public class DashboardServer {
       sendResponse(exchange, 500, "application/json",
           "{\"error\": \"" + e.getMessage() + "\"}");
     }
+  }
+
+  private void handleAIRefresh(HttpExchange exchange) throws IOException {
+    if (!"POST".equals(exchange.getRequestMethod())) {
+      sendResponse(exchange, 405, "application/json", "{\"error\":\"Method not allowed\"}");
+      return;
+    }
+    reportBuilder.resetAiCache();
+    sendResponse(exchange, 200, "application/json", "{\"status\":\"ok\"}");
   }
 
   private void handleReport(HttpExchange exchange) throws IOException {

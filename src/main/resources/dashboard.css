@@ -95,14 +95,65 @@ tr:hover td { background: #162032; }
 .error { color: #f87171; font-size: 14px; text-align: center; padding: 24px; }
 
 /* ── AI Insights markdown ── */
-#aiInsightsContent h2,
-#aiInsightsContent h3  { color: #f1f5f9; margin: 16px 0 8px; }
-#aiInsightsContent p   { margin-bottom: 10px; line-height: 1.7; }
+#aiInsightsContent { line-height: 1.6; font-size: 14px; color: #e2e8f0; }
+
+#aiInsightsContent h1 { font-size: 16px; font-weight: 700; color: #f1f5f9; margin: 12px 0 6px; }
+#aiInsightsContent h2 { font-size: 15px; font-weight: 700; color: #f1f5f9; margin: 10px 0 4px; }
+#aiInsightsContent h3 { font-size: 14px; font-weight: 600; color: #cbd5e1; margin: 8px 0 4px; }
+
+#aiInsightsContent p        { margin: 0 0 6px; line-height: 1.6; }
+#aiInsightsContent p:empty  { display: none; }
+#aiInsightsContent br       { display: none; }
+#aiInsightsContent li > p   { margin: 0; }
+
 #aiInsightsContent ul,
-#aiInsightsContent ol  { margin: 8px 0 10px 20px; line-height: 1.8; }
-#aiInsightsContent li  { margin-bottom: 4px; }
-#aiInsightsContent strong { color: #e2e8f0; }
-#aiInsightsContent code {
-  background: #0f172a; padding: 2px 6px;
-  border-radius: 4px; font-size: 12px; color: #22d3ee; }
-#aiInsightsContent hr  { border-color: #334155; margin: 16px 0; }
+#aiInsightsContent ol {
+    margin: 4px 0 4px 18px;
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+}
+
+#aiInsightsContent ul ul,
+#aiInsightsContent ol ol,
+#aiInsightsContent ul ol,
+#aiInsightsContent ol ul    { margin: 2px 0 2px 16px; }
+
+#aiInsightsContent li       { margin-bottom: 2px; line-height: 1.6; }
+
+#aiInsightsContent strong   { color: #f1f5f9; }
+#aiInsightsContent code     { background: #0f172a; padding: 1px 5px;
+                              border-radius: 4px; font-size: 12px; color: #22d3ee; }
+#aiInsightsContent hr       { border-color: #334155; margin: 10px 0; }
+#aiInsightsContent blockquote { border-left: 3px solid #3b82f6; padding-left: 12px;
+                                color: #94a3b8; margin: 6px 0; }
+
+#aiInsightsContent table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+#aiInsightsContent th    { background: #1e293b; padding: 6px 10px;
+                           font-size: 12px; text-align: left; border: 1px solid #334155; }
+#aiInsightsContent td    { padding: 6px 10px; font-size: 13px; border: 1px solid #334155; }
+#aiInsightsContent tr:nth-child(even) td { background: #162032; }
+#aiInsightsContent li > p:first-child { margin-bottom: 2px; }
+#aiInsightsContent li > ul,
+#aiInsightsContent li > ol { margin-top: 2px; }
+
+#aiInsightsContent pre {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 6px 0;
+}
+
+#aiInsightsContent pre code {
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    color: #e2e8f0;
+    font-family: 'Consolas', 'Monaco', monospace;
+    line-height: 1.5;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

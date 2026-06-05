@@ -84,6 +84,9 @@ public class ReportBuilder {
       }).start();
     }
     String aiInsights = cachedAiInsights;
+    if (aiInsights == null && aiCallInProgress) {
+      aiInsights = "__LOADING__";
+    }
 
     return QualityReport.builder()
         .reportGeneratedAt(Instant.now())
@@ -103,6 +106,16 @@ public class ReportBuilder {
         .aiReadyContext(aiContext)
         .aiInsights(aiInsights)
         .build();
+  }
+
+  /**
+   * Reset cache AI để trigger gọi lại LLM ở lần build() tiếp theo.
+   * Được gọi khi người dùng bấm nút "Refresh AI" trên dashboard.
+   */
+  public void resetAiCache() {
+    if (!aiCallInProgress) {
+      cachedAiInsights = null;
+    }
   }
 
   // ── Metrics ───────────────────────────────────────────────────────
