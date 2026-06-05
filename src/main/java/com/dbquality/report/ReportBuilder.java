@@ -29,6 +29,8 @@ public class ReportBuilder {
   private final DDLCollector ddlCollector;
   private final RuleEngine ruleEngine;
   private final LLMProvider llmProvider;
+  private volatile String cachedAiInsights = null;
+  private volatile boolean aiCallInProgress = false;
 
   public ReportBuilder(QualityConfig config) {
     this.config = config;
@@ -64,15 +66,26 @@ public class ReportBuilder {
 
     // Build AI-ready context
     String aiContext = buildAIContext(ddlContext, sqlContext, findings, metrics);
-    String aiInsights = null;
-    if (llmProvider != null && llmProvider.isAvailable()) {
-      try {
-        System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
-        aiInsights = llmProvider.call(aiContext);
-        System.out.println("[DB Quality] AI analysis complete.");
-      } catch (Exception e) {
-        System.err.println("[DB Quality] AI call failed: " + e.getMessage());
-      }
+    boolean hasEnoughData = !findings.isEmpty() || !sqlContext.getRecords().isEmpty();
+    if (llmProvider != null && llmProvider.isAvailable()
+        && cachedAiInsights == null
+        && !aiCallInProgress
+        && hasEnoughData) {
+      aiCallInProgress = true;
+      final String aiContextFinal = aiContext;
+      new Thread(() -> {
+        try {
+          System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
+          cachedAiInsights = llmProvider.call(aiContextFinal);
+          System.out.println("[DB Quality] AI analysis complete.");
+        } finally {
+          aiCallInProgress = false;
+        }
+      }).start();
+    }
+    String aiInsights = cachedAiInsights;
+    if (aiInsights == null && aiCallInProgress) {
+      aiInsights = "__LOADING__";
     }
 
     return QualityReport.builder()
@@ -93,6 +106,16 @@ public class ReportBuilder {
         .aiReadyContext(aiContext)
         .aiInsights(aiInsights)
         .build();
+  }
+
+  /**
+   * Reset cache AI để trigger gọi lại LLM ở lần build() tiếp theo.
+   * Được gọi khi người dùng bấm nút "Refresh AI" trên dashboard.
+   */
+  public void resetAiCache() {
+    if (!aiCallInProgress) {
+      cachedAiInsights = null;
+    }
   }
 
   // ── Metrics ───────────────────────────────────────────────────────
@@ -187,13 +210,13 @@ public class ReportBuilder {
     StringBuilder sb = new StringBuilder();
 
     // Prompt
-    sb.append("Bạn là chuyên gia database và performance optimization.\n");
+    sb.append("Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\n");
     sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
-    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất\n");
-    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact và độ khó\n");
-    sb.append("3. Ước tính impact của từng vấn đề với hệ thống production\n");
-    sb.append("4. Gợi ý cải thiện schema và query cụ thể kèm SQL mẫu\n");
-    sb.append("5. Nhận xét tổng thể về chất lượng database\n\n");
+    sb.append("1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n");
+    sb.append("2. Đề xuất thứ tự ưu tiên fix theo impact với production (High/Medium/Low)\n");
+    sb.append("3. Với mỗi vấn đề HIGH priority: cung cấp SQL fix cụ thể hoặc code Java mẫu\n");
+    sb.append("4. Ước tính mức độ cải thiện performance sau khi fix (ví dụ: giảm X% query time)\n");
+    sb.append("5. Nhận xét tổng thể và điểm cần theo dõi lâu dài\n");
     sb.append("---\n\n");
 
     sb.append(" DATABASE QUALITY REPORT \n\n");

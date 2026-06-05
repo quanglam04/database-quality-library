@@ -64,15 +64,14 @@ public class GeminiProvider implements LLMProvider {
           .uri(URI.create(url))
           .header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-          .timeout(Duration.ofSeconds(60))
+          .timeout(Duration.ofSeconds(120))
           .build();
 
       HttpResponse<String> response = httpClient.send(request,
           HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() != 200) {
-        return LLMResponse.failure("Gemini API error: " + response.statusCode()
-            + " — " + response.body());
+        return LLMResponse.failure(parseErrorMessage("Gemini", response.statusCode(), response.body()));
       }
 
       JsonNode json = mapper.readTree(response.body());
@@ -84,5 +83,16 @@ public class GeminiProvider implements LLMProvider {
     } catch (Exception e) {
       return LLMResponse.failure("Gemini call failed: " + e.getMessage());
     }
+  }
+
+  private String parseErrorMessage(String provider, int statusCode, String body) {
+    String friendly = switch (statusCode) {
+      case 429 -> "Đã vượt quota API. Vui lòng thử lại sau.";
+      case 401, 403 -> "API key không hợp lệ hoặc hết hạn.";
+      case 503 -> "Dịch vụ AI tạm thời quá tải. Vui lòng thử lại sau.";
+      case 404 -> "Model không tồn tại. Kiểm tra lại quality.ai.model.";
+      default  -> "Lỗi " + statusCode + ". Vui lòng thử lại sau.";
+    };
+    return "[" + provider + "] " + friendly;
   }
 }
