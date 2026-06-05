@@ -189,6 +189,18 @@ function renderPage() {
     </div>`;
 }
 
+function switchTab(tab) {
+  // Ẩn tất cả panels
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  // Bỏ active tất cả buttons
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  // Hiện panel được chọn
+  document.getElementById('tab-' + tab).style.display = 'block';
+  // Active button được chọn
+  event.target.classList.add('active');
+}
+
 function nextPage() { currentPage++; renderPage(); }
 function prevPage() { currentPage--; renderPage(); }
 

@@ -19,102 +19,114 @@
   <div id="scoreBadge" class="score-badge">--</div>
 </header>
 
-<div class="container">
-  <!-- Metric cards -->
-  <div class="grid-4">
-    <div class="card">
-      <h3>Total SQL</h3>
-      <div class="value" id="totalSQL">--</div>
-      <div class="sub">intercepted</div>
-    </div>
-    <div class="card">
-      <h3>Slow Queries</h3>
-      <div class="value" id="slowCount" style="color:#fdba74">--</div>
-      <div class="sub">above threshold</div>
-    </div>
-    <div class="card">
-      <h3>N+1 Detected</h3>
-      <div class="value" id="nPlusOne" style="color:#fca5a5">--</div>
-      <div class="sub">patterns</div>
-    </div>
-    <div class="card">
-      <h3>Error Rate</h3>
-      <div class="value" id="errorRate" style="color:#f87171">--</div>
-      <div class="sub">of total queries</div>
-    </div>
-  </div>
+<!-- Tab navigation -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
+  <button class="tab-btn" onclick="switchTab('findings')">🔍 Findings</button>
+  <button class="tab-btn" onclick="switchTab('ai')">🤖 AI</button>
+</div>
 
-  <div class="grid-2">
-    <!-- Latency -->
-    <div class="card">
-      <h3 class="section-title" style="font-size:14px">Latency Percentiles</h3>
-      <div class="latency-bars" id="latencyBars">
-        <div class="empty">Loading...</div>
+<div class="container">
+
+  <!-- Tab: Overview -->
+  <div id="tab-overview" class="tab-panel">
+    <div class="grid-4">
+      <div class="card">
+        <h3>Total SQL</h3>
+        <div class="value" id="totalSQL">--</div>
+        <div class="sub">intercepted</div>
+      </div>
+      <div class="card">
+        <h3>Slow Queries</h3>
+        <div class="value" id="slowCount" style="color:#fdba74">--</div>
+        <div class="sub">above threshold</div>
+      </div>
+      <div class="card">
+        <h3>N+1 Detected</h3>
+        <div class="value" id="nPlusOne" style="color:#fca5a5">--</div>
+        <div class="sub">patterns</div>
+      </div>
+      <div class="card">
+        <h3>Error Rate</h3>
+        <div class="value" id="errorRate" style="color:#f87171">--</div>
+        <div class="sub">of total queries</div>
       </div>
     </div>
 
-    <!-- Top Tables -->
+    <div class="grid-2">
+      <div class="card">
+        <h3 class="section-title" style="font-size:14px">Latency Percentiles</h3>
+        <div class="latency-bars" id="latencyBars">
+          <div class="empty">Loading...</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="section-title" style="font-size:14px">Top Tables by Query Frequency</h3>
+        <table id="topTablesTable">
+          <thead><tr><th>Table</th><th>Queries</th></tr></thead>
+          <tbody id="topTablesBody"><tr><td colspan="2" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Findings -->
+  <div id="tab-findings" class="tab-panel" style="display:none">
     <div class="card">
-      <h3 class="section-title" style="font-size:14px">Top Tables by Query Frequency</h3>
-      <table id="topTablesTable">
-        <thead><tr><th>Table</th><th>Queries</th></tr></thead>
-        <tbody id="topTablesBody"><tr><td colspan="2" class="empty">Loading...</td></tr></tbody>
-      </table>
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title">Findings</span>
+        <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+      </div>
+      <div class="findings-list" id="findingsList">
+        <div class="empty">Loading...</div>
+      </div>
     </div>
   </div>
 
-  <!-- Findings -->
-  <div class="card">
-    <div style="display:flex; align-items:center; margin-bottom:16px">
-      <span class="section-title">Findings</span>
-      <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  <!-- Tab: AI -->
+  <div id="tab-ai" class="tab-panel" style="display:none">
+    <!-- AI-Ready Context -->
+    <div class="card">
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title">🤖 AI-Ready Context</span>
+        <button onclick="copyAIContext()"
+                style="margin-left:auto; background:#6d28d9; color:white; border:none;
+                       padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
+                       transition: background 0.2s, transform 0.1s;"
+                onmouseover="this.style.background='#5b21b6'"
+                onmouseout="this.style.background='#6d28d9'"
+                onmousedown="this.style.transform='scale(0.97)'"
+                onmouseup="this.style.transform='scale(1)'">
+          📋 Copy
+        </button>
+      </div>
+      <pre id="aiContextBlock"
+           style="background:#0f172a; border:1px solid #334155; border-radius:8px;
+                  padding:16px; font-size:12px; color:#94a3b8; white-space:pre-wrap;
+                  word-break:break-word; max-height:300px; overflow-y:auto; line-height:1.6">
+        Loading...
+      </pre>
     </div>
-    <div class="findings-list" id="findingsList">
-      <div class="empty">Loading...</div>
+
+    <!-- AI Insights -->
+    <div id="aiInsightsSection" class="card" style="margin-top:16px; display:none">
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title">✨ AI Insights</span>
+        <span style="font-size:12px; color:#64748b; margin-left:8px">Powered by AI</span>
+        <button onclick="refreshAI()"
+                id="refreshAIBtn"
+                style="margin-left:auto; background:#1e293b; color:#94a3b8; border:1px solid #334155;
+                       padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px;
+                       transition:background 0.2s, color 0.2s"
+                onmouseover="this.style.background='#334155'; this.style.color='#e2e8f0'"
+                onmouseout="this.style.background='#1e293b'; this.style.color='#94a3b8'">
+          🔄 Refresh AI
+        </button>
+      </div>
+      <div id="aiInsightsContent"></div>
     </div>
   </div>
 
-  <!-- AI Context -->
-  <div class="card" style="margin-top:16px">
-    <div style="display:flex; align-items:center; margin-bottom:16px">
-      <span class="section-title">🤖 AI-Ready Context</span>
-      <button onclick="copyAIContext()"
-              style="margin-left:auto; background:#6d28d9; color:white; border:none;
-                     padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
-                     transition: background 0.2s, transform 0.1s;"
-              onmouseover="this.style.background='#5b21b6'"
-              onmouseout="this.style.background='#6d28d9'"
-              onmousedown="this.style.transform='scale(0.97)'"
-              onmouseup="this.style.transform='scale(1)'">
-        📋 Copy
-      </button>
-    </div>
-    <pre id="aiContextBlock"
-         style="background:#0f172a; border:1px solid #334155; border-radius:8px;
-                padding:16px; font-size:12px; color:#94a3b8; white-space:pre-wrap;
-                word-break:break-word; max-height:300px; overflow-y:auto; line-height:1.6">
-      Loading...
-    </pre>
-  </div>
-
-  <!-- AI Insights — chỉ hiện khi có data -->
-  <div id="aiInsightsSection" class="card" style="margin-top:16px; display:none">
-    <div style="display:flex; align-items:center; margin-bottom:16px">
-      <span class="section-title">✨ AI Insights</span>
-      <span style="font-size:12px; color:#64748b; margin-left:8px">Powered by AI</span>
-      <button onclick="refreshAI()"
-              id="refreshAIBtn"
-              style="margin-left:auto; background:#1e293b; color:#94a3b8; border:1px solid #334155;
-                   padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px;
-                   transition:background 0.2s, color 0.2s"
-              onmouseover="this.style.background='#334155'; this.style.color='#e2e8f0'"
-              onmouseout="this.style.background='#1e293b'; this.style.color='#94a3b8'">
-        🔄 Refresh AI
-      </button>
-    </div>
-    <div id="aiInsightsContent">
-    </div>
-  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
