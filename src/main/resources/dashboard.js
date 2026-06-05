@@ -7,18 +7,22 @@ async function loadData() {
   if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 600); }
 
   try {
-    const [metricsRes, findingsRes, reportRes, slowRes] = await Promise.all([
+    const [metricsRes, findingsRes, reportRes, slowRes, projectRes] = await Promise.all([
       fetch('/metrics'),
       fetch('/findings'),
       fetch('/report'),
-      fetch('/slow-queries')
+      fetch('/slow-queries'),
+      fetch('/project-info')
     ]);
+
     const metrics     = await metricsRes.json();
     const findings    = await findingsRes.json();
     const report      = await reportRes.json();
     const slowQueries = await slowRes.json();
+    const projectInfo = await projectRes.json();
 
     updateSlowQueries(slowQueries);
+    updateProjectInfo(projectInfo);
     updateMetrics(metrics);
     updateFindings(findings);
     updateScore(report.overallScore);
@@ -304,6 +308,98 @@ function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;')
             .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateProjectInfo(info) {
+  const container = document.getElementById('projectInfoContent');
+  if (!info) { container.innerHTML = '<div class="empty">No data</div>'; return; }
+
+  const uptime = formatUptime(info.uptimeSeconds);
+  const heapPct = info.heapMemoryMaxMb > 0
+    ? Math.round(info.heapMemoryUsedMb / info.heapMemoryMaxMb * 100) : 0;
+
+  container.innerHTML = `
+    <div class="grid-2" style="margin-bottom:16px">
+
+      <!-- Database -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">🗄️ Database</div>
+        ${infoRow('Product',    info.dbProductName)}
+        ${infoRow('Version',    info.dbProductVersion)}
+        ${infoRow('User',       info.dbUsername)}
+        ${infoRow('URL',        info.dbUrl, true)}
+        ${infoRow('Driver',     info.driverName)}
+        ${infoRow('Driver Ver', info.driverVersion)}
+        ${info.dbMaxConnections > 0
+            ? infoRow('Max Connections', info.dbMaxConnections)
+            : ''}
+      </div>
+
+      <!-- Application -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">🚀 Application</div>
+        ${infoRow('Framework',   info.framework
+            + (info.frameworkVersion ? ' ' + info.frameworkVersion : ''))}
+        ${infoRow('ORM',         info.ormFramework)}
+        ${infoRow('Conn Pool',   info.connectionPool)}
+        ${infoRow('Java',        info.javaVersion + ' — ' + info.javaVendor)}
+        ${infoRow('JVM',         info.jvmName)}
+        ${infoRow('OS',          info.osName + ' ' + info.osVersion)}
+        ${infoRow('CPU Cores',   info.availableProcessors)}
+      </div>
+
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Memory -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">💾 JVM Memory</div>
+        ${infoRow('Heap Used',  info.heapMemoryUsedMb + ' MB')}
+        ${infoRow('Heap Max',   info.heapMemoryMaxMb + ' MB')}
+        <div style="margin-top:8px">
+          <div style="display:flex; justify-content:space-between;
+                      font-size:12px; color:#64748b; margin-bottom:4px">
+            <span>Heap usage</span><span>${heapPct}%</span>
+          </div>
+          <div style="background:#0f172a; border-radius:4px; height:8px">
+            <div style="height:8px; border-radius:4px; transition:width 0.5s;
+                        background:${heapPct > 80 ? '#ef4444' : heapPct > 60 ? '#f59e0b' : '#22d3ee'};
+                        width:${heapPct}%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DB Quality Library -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">📦 DB Quality Library</div>
+        ${infoRow('Version',        info.libraryVersion)}
+        ${infoRow('Dashboard Port', info.dashboardPort)}
+        ${infoRow('Uptime',         uptime)}
+      </div>
+
+    </div>`;
+}
+
+function infoRow(label, value, mono) {
+  if (value == null || value === '' || value === 'null') return '';
+  return `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;
+                padding:5px 0; border-bottom:1px solid #1e293b; gap:12px">
+      <span style="font-size:12px; color:#64748b; flex-shrink:0">${label}</span>
+      <span style="font-size:12px; color:#e2e8f0; text-align:right; word-break:break-all;
+                   ${mono ? 'font-family:monospace; color:#94a3b8' : ''}">${value}</span>
+    </div>`;
+}
+
+function formatUptime(seconds) {
+  if (!seconds) return '0s';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function nextPage() { currentPage++; renderPage(); }

@@ -24,6 +24,7 @@
   <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
   <button class="tab-btn" onclick="switchTab('findings')">🔍 Findings</button>
   <button class="tab-btn" onclick="switchTab('ai')">🤖 AI</button>
+  <button class="tab-btn" onclick="switchTab('project')">ℹ️ Project</button>
 </div>
 
 <div class="container">
@@ -135,6 +136,13 @@
         </button>
       </div>
       <div id="aiInsightsContent"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Project Info -->
+  <div id="tab-project" class="tab-panel" style="display:none">
+    <div id="projectInfoContent">
+      <div class="empty">Loading...</div>
     </div>
   </div>
 
