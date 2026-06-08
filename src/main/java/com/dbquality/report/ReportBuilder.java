@@ -332,22 +332,24 @@ public class ReportBuilder {
 
     // Tạo ExplainParser phù hợp với DB hiện tại
     ExplainParser explainParser = null;
+    String dbProduct = null;
     try {
-      String dbProduct = connection.getMetaData().getDatabaseProductName();
+      dbProduct = connection.getMetaData().getDatabaseProductName();
       explainParser = ExplainParserFactory.create(dbProduct);
     } catch (Exception ignored) {}
 
     List<SlowQueryReport> result = new ArrayList<>();
     for (SQLRecord record : topSlow) {
       ExplainResult explainResult = runExplain(connection, record.getSql(),
-          explainParser, record.getParameters());
+          explainParser, record.getParameters(), dbProduct);
       result.add(new SlowQueryReport(record, explainResult));
     }
     return result;
   }
 
   private ExplainResult runExplain(Connection connection, String sql,
-      ExplainParser explainParser, Map<Integer, Object> parameters) {
+      ExplainParser explainParser, Map<Integer, Object> parameters,
+      String dbProduct) {
 
     if (explainParser == null || sql == null) return null;
 
@@ -358,7 +360,7 @@ public class ReportBuilder {
     }
 
     try {
-      String explainSql = "EXPLAIN FORMAT=JSON " + sql;
+      String explainSql = buildExplainSql(dbProduct, sql);
       java.sql.PreparedStatement ps = connection.prepareStatement(explainSql);
       java.sql.ParameterMetaData pmd = ps.getParameterMetaData();
 
@@ -384,5 +386,20 @@ public class ReportBuilder {
       System.out.println("[DB Quality] EXPLAIN failed for query: " + e.getMessage());
     }
     return null;
+  }
+
+  private String buildExplainSql(String dbProduct, String sql) {
+    if (dbProduct == null) return "EXPLAIN FORMAT=JSON " + sql;
+    String upper = dbProduct.toUpperCase();
+
+    if (upper.contains("POSTGRESQL")) {
+      // ANALYZE để có Actual Rows thực tế — cần thiết cho PostgreSQL parser
+      return "EXPLAIN (FORMAT JSON, ANALYZE) " + sql;
+    }
+    if (upper.contains("MYSQL") || upper.contains("MARIADB")) {
+      return "EXPLAIN FORMAT=JSON " + sql;
+    }
+    // Fallback — thử cú pháp MySQL, nếu không hỗ trợ sẽ bị catch
+    return "EXPLAIN FORMAT=JSON " + sql;
   }
 }

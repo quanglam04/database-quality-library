@@ -35,6 +35,14 @@ public class Constant {
     public static String NPlusOne = "N_PLUS_ONE";
     public static String SelectStar = "SELECT_STAR";
     public static String SlowQuery = "SLOW_QUERY";
+  }
 
+  // Database name
+  public class DatabaseName {
+    public static String MySQL = "MYSQL";
+    public static String MariaDB = "MARIADB";
+    public static String PostgreSQL = "POSTGRESQL";
+    public static String SQlServer = "SQLSERVER";
+    public static String Oracle = "ORACLE";
   }
 }
