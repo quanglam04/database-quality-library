@@ -44,6 +44,7 @@ public class QualityPreparedStatement implements PreparedStatement {
       "com.intellij.",
       "org.springframework.",
       "org.hibernate.",
+      "com.fasterxml.jackson.",
       "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
       "com.mysql.", "org.postgresql.", "org.h2.",
       "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
@@ -102,9 +103,13 @@ public class QualityPreparedStatement implements PreparedStatement {
         || upper.contains("/* PING */")
         || upper.contains("/* ISVALID */")) return true;
 
-    // Hibernate schema validation
+    // Hibernate schema validation — SELECT * FROM table WHERE 1=0
+    if (upper.contains("WHERE 1=0")) return true;
+
+    // Hibernate/Spring schema check
     if (upper.contains("INFORMATION_SCHEMA")) return true;
     if (upper.contains("PERFORMANCE_SCHEMA")) return true;
+
     // Flyway
     if (upper.contains("FLYWAY_SCHEMA_HISTORY")
         || upper.contains("FLYWAY_SCHEMA_HIST")
