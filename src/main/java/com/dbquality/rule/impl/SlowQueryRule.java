@@ -8,6 +8,7 @@ import com.dbquality.rule.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Phát hiện các câu SQL có thời gian thực thi vượt ngưỡng cho phép.
@@ -34,18 +35,22 @@ public class SlowQueryRule implements Rule {
   public RuleResult analyze(DDLContext ddl, SQLContext sql) {
     List<Finding> findings = new ArrayList<>();
 
-    for (SQLRecord record : sql.getRecords()) {
-      if (record.getExecutionTime() >= thresholdMs) {
-        findings.add(Finding.builder()
+    sql.getRecords().stream()
+        .filter(r -> r.getExecutionTime() >= thresholdMs)
+        .collect(Collectors.toMap(
+            SQLRecord::getSql,
+            r -> r,
+            (a, b) -> a.getExecutionTime() >= b.getExecutionTime() ? a : b
+        ))
+        .values()
+        .forEach(record -> findings.add(Finding.builder()
             .rule(getName())
             .severity(getSeverity())
             .message("Query chạy " + record.getExecutionTime()
                 + "ms — vượt ngưỡng " + thresholdMs + "ms")
             .recommendation("Kiểm tra index và tối ưu câu SQL")
             .calledFrom(record.getCalledFrom())
-            .build());
-      }
-    }
+            .build()));
 
     return new RuleResult(findings);
   }
