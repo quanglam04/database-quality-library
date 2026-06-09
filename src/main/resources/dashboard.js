@@ -85,7 +85,7 @@ function copyAIContext() {
   const text = document.getElementById('aiContextBlock').textContent;
   navigator.clipboard.writeText(text).then(() => {
     const btn = event.target;
-    btn.textContent = '✅ Copied!';
+    btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = '📋 Copy', 2000);
   });
 }
@@ -143,7 +143,7 @@ function updateMetrics(m) {
 function updateFindings(findings) {
   if (!findings || findings.length === 0) {
     document.getElementById('findingsList').innerHTML =
-      '<div class="empty">✅ No findings — looking good!</div>';
+      '<div class="empty"> No findings — looking good!</div>';
     return;
   }
   const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, WARNING: 3 };
@@ -211,7 +211,7 @@ function switchTab(tab) {
 function updateSlowQueries(slowQueries) {
   const container = document.getElementById('slowQueriesList');
   if (!slowQueries || slowQueries.length === 0) {
-    container.innerHTML = '<div class="empty">✅ No slow queries detected</div>';
+    container.innerHTML = '<div class="empty"> No slow queries detected</div>';
     return;
   }
 
@@ -277,7 +277,7 @@ function openExplainModal(idx) {
         </div>
       </div>`).join('');
   } else {
-    findingsEl.innerHTML = '<div style="color:#22d3ee; font-size:13px; margin-bottom:8px">✅ No issues detected in execution plan</div>';
+    findingsEl.innerHTML = '<div style="color:#22d3ee; font-size:13px; margin-bottom:8px"> No issues detected in execution plan</div>';
   }
 
   // Raw JSON — format đẹp

@@ -47,11 +47,19 @@ public class SlowQueryRule implements Rule {
             .rule(getName())
             .severity(getSeverity())
             .message("Query chạy " + record.getExecutionTime()
-                + "ms — vượt ngưỡng " + thresholdMs + "ms")
+                + "ms — vượt ngưỡng " + thresholdMs + "ms" + getQueryType(record.getSql()))
             .recommendation("Kiểm tra index và tối ưu câu SQL")
             .calledFrom(record.getCalledFrom())
             .build()));
 
     return new RuleResult(findings);
+  }
+
+  private String getQueryType(String sql) {
+    if (sql == null) return "";
+    String upper = sql.trim().toUpperCase();
+    if (upper.startsWith("SELECT COUNT")) return " [COUNT]";
+    if (upper.contains(" LIMIT "))       return " [PAGINATED]";
+    return "";
   }
 }
