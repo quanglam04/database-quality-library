@@ -47,6 +47,8 @@ public class QualityPreparedStatement implements PreparedStatement {
       "com.fasterxml.jackson.",
       "jakarta.servlet.",
       "javax.servlet.",
+      "org.apache.catalina.",
+      "org.apache.tomcat.",
       "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
       "com.mysql.", "org.postgresql.", "org.h2.",
       "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
