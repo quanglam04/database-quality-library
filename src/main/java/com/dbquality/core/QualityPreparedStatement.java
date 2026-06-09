@@ -45,6 +45,8 @@ public class QualityPreparedStatement implements PreparedStatement {
       "org.springframework.",
       "org.hibernate.",
       "com.fasterxml.jackson.",
+      "jakarta.servlet.",
+      "javax.servlet.",
       "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
       "com.mysql.", "org.postgresql.", "org.h2.",
       "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
