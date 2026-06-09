@@ -1,5 +1,6 @@
 package com.dbquality.explain.impl;
 
+import com.dbquality.constant.Constant.DatabaseName;
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainResult;
 import com.dbquality.rule.Finding;
@@ -22,7 +23,7 @@ public class MySQLExplainParser implements ExplainParser {
   public boolean supports(String databaseProductName) {
     if (databaseProductName == null) return false;
     String upper = databaseProductName.toUpperCase();
-    return upper.contains("MYSQL");
+    return upper.contains(DatabaseName.MySQL);
   }
 
   @Override
