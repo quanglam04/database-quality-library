@@ -175,9 +175,13 @@ public class QualityStatement implements Statement {
         || upper.contains("/* PING */")
         || upper.contains("/* ISVALID */")) return true;
 
-    // Hibernate schema validation
+    // Hibernate schema validation — SELECT * FROM table WHERE 1=0
+    if (upper.contains("WHERE 1=0")) return true;
+
+    // Hibernate/Spring schema check
     if (upper.contains("INFORMATION_SCHEMA")) return true;
     if (upper.contains("PERFORMANCE_SCHEMA")) return true;
+
     // Flyway
     if (upper.contains("FLYWAY_SCHEMA_HISTORY")
         || upper.contains("FLYWAY_SCHEMA_HIST")
