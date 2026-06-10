@@ -7,12 +7,13 @@ async function loadData() {
   if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 600); }
 
   try {
-    const [metricsRes, findingsRes, reportRes, slowRes, projectRes] = await Promise.all([
+    const [metricsRes, findingsRes, reportRes, slowRes, projectRes, trendRes] = await Promise.all([
       fetch('/metrics'),
       fetch('/findings'),
       fetch('/report'),
       fetch('/slow-queries'),
-      fetch('/project-info')
+      fetch('/project-info'),
+      fetch('/metrics-trend')
     ]);
 
     const metrics     = await metricsRes.json();
@@ -20,12 +21,14 @@ async function loadData() {
     const report      = await reportRes.json();
     const slowQueries = await slowRes.json();
     const projectInfo = await projectRes.json();
+    const trend = await trendRes.json();
 
     updateSlowQueries(slowQueries);
     updateProjectInfo(projectInfo);
     updateMetrics(metrics);
     updateFindings(findings);
     updateScore(report.overallScore);
+    updateLatencyTrend(trend);
 
     const lastUpdate = document.getElementById('lastUpdate');
     if (lastUpdate) {
@@ -323,7 +326,7 @@ function updateProjectInfo(info) {
 
       <!-- Database -->
       <div class="card">
-        <div class="section-title" style="margin-bottom:16px">🗄️ Database</div>
+        <div class="section-title" style="margin-bottom:16px"> Database</div>
         ${infoRow('Product',    info.dbProductName)}
         ${infoRow('Version',    info.dbProductVersion)}
         ${infoRow('User',       info.dbUsername)}
@@ -337,7 +340,7 @@ function updateProjectInfo(info) {
 
       <!-- Application -->
       <div class="card">
-        <div class="section-title" style="margin-bottom:16px">🚀 Application</div>
+        <div class="section-title" style="margin-bottom:16px"> Application</div>
         ${infoRow('Framework',   info.framework
             + (info.frameworkVersion ? ' ' + info.frameworkVersion : ''))}
         ${infoRow('ORM',         info.ormFramework)}
@@ -354,7 +357,7 @@ function updateProjectInfo(info) {
 
       <!-- Memory -->
       <div class="card">
-        <div class="section-title" style="margin-bottom:16px">💾 JVM Memory</div>
+        <div class="section-title" style="margin-bottom:16px"> JVM Memory</div>
         ${infoRow('Heap Used',  info.heapMemoryUsedMb + ' MB')}
         ${infoRow('Heap Max',   info.heapMemoryMaxMb + ' MB')}
         <div style="margin-top:8px">
@@ -372,7 +375,7 @@ function updateProjectInfo(info) {
 
       <!-- DB Quality Library -->
       <div class="card">
-        <div class="section-title" style="margin-bottom:16px">📦 DB Quality Library</div>
+        <div class="section-title" style="margin-bottom:16px"> DB Quality Library</div>
         ${infoRow('Version',        info.libraryVersion)}
         ${infoRow('Dashboard Port', info.dashboardPort)}
         ${infoRow('Uptime',         uptime)}
@@ -402,23 +405,115 @@ function formatUptime(seconds) {
   return `${s}s`;
 }
 
-async function exportAIContext() {
-  const btn = event.target;
-  btn.disabled = true;
-  btn.textContent = ' Exporting...';
-  try {
-    const res  = await fetch('/export-ai-context');
-    const data = await res.json();
-    if (data.file) {
-      btn.textContent = ' Exported!';
-      setTimeout(() => { btn.textContent = ' Export'; btn.disabled = false; }, 2000);
-    } else {
-      throw new Error(data.error || 'Export failed');
-    }
-  } catch (e) {
-    btn.textContent = ' Failed';
-    setTimeout(() => { btn.textContent = ' Export'; btn.disabled = false; }, 2000);
+function updateLatencyTrend(buckets) {
+  const container = document.getElementById('latencyTrendChart');
+  if (!buckets || buckets.length === 0) {
+    container.innerHTML = '<div class="empty">No trend data yet — wait for more queries</div>';
+    return;
   }
+  if (buckets.length < 2) {
+    container.innerHTML = '<div class="empty">Collecting data... (' + buckets.length + ' bucket so far)</div>';
+    return;
+  }
+
+  const W = container.clientWidth || 800;
+  const H = 160;
+  const PAD = { top: 16, right: 16, bottom: 32, left: 48 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const p99Values = buckets.map(b => b.p99);
+  const p95Values = buckets.map(b => b.p95);
+  const p50Values = buckets.map(b => b.p50);
+  const maxVal    = Math.max(...p99Values, 1);
+
+  const xStep = chartW / (buckets.length - 1);
+  const yScale = v => chartH - (v / maxVal * chartH);
+
+  const toPath = values => values.map((v, i) =>
+    (i === 0 ? 'M' : 'L') + (PAD.left + i * xStep).toFixed(1) + ',' + (PAD.top + yScale(v)).toFixed(1)
+  ).join(' ');
+
+  // X-axis labels — show first, middle, last
+  const labelIndices = [0, Math.floor(buckets.length / 2), buckets.length - 1];
+  const xLabels = labelIndices.map(i => {
+    const t = new Date(buckets[i].bucketStart);
+    const hh = String(t.getHours()).padStart(2, '0');
+    const mm = String(t.getMinutes()).padStart(2, '0');
+    const ss = String(t.getSeconds()).padStart(2, '0');
+    return `<text x="${(PAD.left + i * xStep).toFixed(1)}" y="${H - 4}"
+      fill="#64748b" font-size="10" text-anchor="middle">${hh}:${mm}:${ss}</text>`;
+  }).join('');
+
+  // Y-axis labels
+  const yLabels = [0, Math.round(maxVal / 2), maxVal].map(v => {
+    const y = PAD.top + yScale(v);
+    return `<text x="${PAD.left - 6}" y="${y.toFixed(1)}"
+      fill="#64748b" font-size="10" text-anchor="end" dominant-baseline="middle">${v}ms</text>`;
+  }).join('');
+
+  // Tooltip points — invisible circles for hover
+  const p99Points = buckets.map((b, i) => {
+    const cx = (PAD.left + i * xStep).toFixed(1);
+    const cy = (PAD.top + yScale(b.p99)).toFixed(1);
+    const t  = new Date(b.bucketStart);
+    const label = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')} — P99:${b.p99}ms P95:${b.p95}ms P50:${b.p50}ms (${b.queryCount} queries)`;
+    return `<circle cx="${cx}" cy="${cy}" r="4" fill="#ef4444" opacity="0.8">
+      <title>${label}</title>
+    </circle>`;
+  }).join('');
+
+  container.innerHTML = `
+    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <!-- Grid lines -->
+      ${[0, 0.25, 0.5, 0.75, 1].map(r => {
+        const y = (PAD.top + chartH * (1 - r)).toFixed(1);
+        return `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + chartW}" y2="${y}"
+          stroke="#1e293b" stroke-width="1"/>`;
+      }).join('')}
+
+      <!-- Lines -->
+      <path d="${toPath(p50Values)}" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+      <path d="${toPath(p95Values)}" fill="none" stroke="#f59e0b" stroke-width="1.5" opacity="0.6"/>
+      <path d="${toPath(p99Values)}" fill="none" stroke="#ef4444" stroke-width="2"/>
+
+      <!-- Data points P99 -->
+      ${p99Points}
+
+      <!-- Axes -->
+      <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + chartH}"
+        stroke="#334155" stroke-width="1"/>
+      <line x1="${PAD.left}" y1="${PAD.top + chartH}" x2="${PAD.left + chartW}" y2="${PAD.top + chartH}"
+        stroke="#334155" stroke-width="1"/>
+
+      <!-- Labels -->
+      ${yLabels}
+      ${xLabels}
+
+      <!-- Legend -->
+      <line x1="${W - 120}" y1="12" x2="${W - 105}" y2="12" stroke="#3b82f6" stroke-width="2"/>
+      <text x="${W - 100}" y="16" fill="#64748b" font-size="10">P50</text>
+      <line x1="${W - 80}" y1="12" x2="${W - 65}" y2="12" stroke="#f59e0b" stroke-width="2"/>
+      <text x="${W - 60}" y="16" fill="#64748b" font-size="10">P95</text>
+      <line x1="${W - 40}" y1="12" x2="${W - 25}" y2="12" stroke="#ef4444" stroke-width="2"/>
+      <text x="${W - 20}" y="16" fill="#64748b" font-size="10">P99</text>
+    </svg>`;
+}
+
+function exportAIContext() {
+  const text = document.getElementById('aiContextBlock').textContent;
+  if (!text || text.trim() === 'Loading...') {
+    alert('No AI context available yet');
+    return;
+  }
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'ai-context_' + new Date().toISOString().replace(/[:.]/g, '-') + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function nextPage() { currentPage++; renderPage(); }
