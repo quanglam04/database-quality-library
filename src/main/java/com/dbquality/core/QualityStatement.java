@@ -4,6 +4,7 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
+import com.dbquality.constant.Constant;
 import java.sql.*;
 import java.time.Instant;
 import java.util.Collections;
@@ -198,7 +199,7 @@ public class QualityStatement implements Statement {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
-      boolean isInternal = QualityPreparedStatement.INTERNAL_PREFIXES.stream()
+      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
       if (!isInternal) {
         return className + ":" + frame.getLineNumber()

@@ -4,6 +4,7 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
+import com.dbquality.constant.Constant;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -35,35 +36,12 @@ public class QualityPreparedStatement implements PreparedStatement {
     this.config = config;
   }
 
-  // ── Capture stack trace ───────────────────────────────────────────
-
-  public static final List<String> INTERNAL_PREFIXES = List.of(
-      "java.", "javax.", "sun.", "jdk.", "com.sun.",
-      "org.junit.", "org.opentest4j.",
-      "org.apache.maven.", "org.apache.surefire.",
-      "com.intellij.",
-      "org.springframework.",
-      "org.hibernate.",
-      "com.fasterxml.jackson.",
-      "jakarta.servlet.",
-      "javax.servlet.",
-      "org.apache.catalina.",
-      "org.apache.tomcat.",
-      "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
-      "com.mysql.", "org.postgresql.", "org.h2.",
-      "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
-      "com.dbquality.core.QualityDataSource.",
-      "com.dbquality.core.QualityConnection.",
-      "com.dbquality.core.QualityPreparedStatement",
-      "com.dbquality.collector.",
-      "com.dbquality.config."
-  );
 
   private String captureCalledFrom() {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
-      boolean isInternal = INTERNAL_PREFIXES.stream()
+      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
       if (!isInternal) {
         return className + ":" + frame.getLineNumber()
