@@ -1,5 +1,7 @@
 package com.dbquality.constant;
 
+import java.util.List;
+
 public class Constant {
 
   // Provider identifiers
@@ -45,5 +47,35 @@ public class Constant {
     public static String SQlServer = "SQLSERVER";
     public static String Oracle = "ORACLE";
   }
+
+  /**
+   * Danh sách package prefix bị loại trừ khi capture calledFrom.
+   * Khi thư viện intercept SQL, nó duyệt stack trace và bỏ qua các frame
+   * thuộc các prefix này để tìm đúng frame code nghiệp vụ của người dùng.
+   *
+   * <p>Bao gồm: JDK internals, test frameworks, Spring, Hibernate,
+   * Jackson, Servlet containers (Tomcat, Catalina), JDBC drivers,
+   * và các class nội bộ của thư viện.</p>
+   */
+  public static final List<String> INTERNAL_PREFIXES = List.of(
+      "java.", "javax.", "sun.", "jdk.", "com.sun.",
+      "org.junit.", "org.opentest4j.",
+      "org.apache.maven.", "org.apache.surefire.",
+      "org.apache.catalina.", "org.apache.tomcat.",
+      "com.intellij.",
+      "org.springframework.",
+      "org.hibernate.",
+      "com.fasterxml.jackson.",
+      "jakarta.servlet.",
+      "javax.servlet.",
+      "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
+      "com.mysql.", "org.postgresql.", "org.h2.",
+      "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
+      "com.dbquality.core.QualityDataSource.",
+      "com.dbquality.core.QualityConnection.",
+      "com.dbquality.core.QualityPreparedStatement",
+      "com.dbquality.collector.",
+      "com.dbquality.config."
+  );
 
 }
