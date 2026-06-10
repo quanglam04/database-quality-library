@@ -402,6 +402,25 @@ function formatUptime(seconds) {
   return `${s}s`;
 }
 
+async function exportAIContext() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = ' Exporting...';
+  try {
+    const res  = await fetch('/export-ai-context');
+    const data = await res.json();
+    if (data.file) {
+      btn.textContent = ' Exported!';
+      setTimeout(() => { btn.textContent = ' Export'; btn.disabled = false; }, 2000);
+    } else {
+      throw new Error(data.error || 'Export failed');
+    }
+  } catch (e) {
+    btn.textContent = ' Failed';
+    setTimeout(() => { btn.textContent = ' Export'; btn.disabled = false; }, 2000);
+  }
+}
+
 function nextPage() { currentPage++; renderPage(); }
 function prevPage() { currentPage--; renderPage(); }
 

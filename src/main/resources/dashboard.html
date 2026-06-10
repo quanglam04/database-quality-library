@@ -101,16 +101,24 @@
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
         <span class="section-title">🤖 AI-Ready Context</span>
-        <button onclick="copyAIContext()"
-                style="margin-left:auto; background:#6d28d9; color:white; border:none;
-                       padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
-                       transition: background 0.2s, transform 0.1s;"
-                onmouseover="this.style.background='#5b21b6'"
-                onmouseout="this.style.background='#6d28d9'"
-                onmousedown="this.style.transform='scale(0.97)'"
-                onmouseup="this.style.transform='scale(1)'">
-          📋 Copy
-        </button>
+        <div style="display:flex; gap:8px; margin-left:auto">
+          <button onclick="copyAIContext()"
+                  style="background:#6d28d9; color:white; border:none;
+                 padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
+                 transition: background 0.2s"
+                  onmouseover="this.style.background='#5b21b6'"
+                  onmouseout="this.style.background='#6d28d9'">
+             Copy
+          </button>
+          <button onclick="exportAIContext()"
+                  style="background:#0f4c81; color:white; border:none;
+                 padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
+                 transition: background 0.2s"
+                  onmouseover="this.style.background='#0d3d6a'"
+                  onmouseout="this.style.background='#0f4c81'">
+             Export
+          </button>
+        </div>
       </div>
       <pre id="aiContextBlock"
            style="background:#0f172a; border:1px solid #334155; border-radius:8px;
@@ -132,7 +140,7 @@
                        transition:background 0.2s, color 0.2s"
                 onmouseover="this.style.background='#334155'; this.style.color='#e2e8f0'"
                 onmouseout="this.style.background='#1e293b'; this.style.color='#94a3b8'">
-          🔄 Refresh AI
+           Refresh AI
         </button>
       </div>
       <div id="aiInsightsContent"></div>

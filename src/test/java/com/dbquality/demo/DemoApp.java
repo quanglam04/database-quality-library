@@ -62,7 +62,7 @@ public class DemoApp {
     // Giả lập các anti-pattern
     try (Connection conn = ds.getConnection()) {
       // SELECT * — trigger SelectStarRule
-      conn.prepareStatement("SELECT * FROM users").executeQuery();
+      conn.prepareStatement("SELECT id, name, email FROM users").executeQuery();
 
       // N+1 — cùng query lặp lại nhiều lần
       for (int i = 1; i <= 12; i++) {
