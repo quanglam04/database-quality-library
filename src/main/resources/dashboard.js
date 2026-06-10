@@ -406,6 +406,14 @@ function formatUptime(seconds) {
 }
 
 function updateLatencyTrend(buckets) {
+  if (!document.getElementById('chartTooltip')) {
+    const tip = document.createElement('div');
+    tip.id = 'chartTooltip';
+    tip.style.cssText = 'position:fixed; background:#1e293b; border:1px solid #334155; ' +
+      'border-radius:6px; padding:6px 10px; font-size:11px; color:#e2e8f0; ' +
+      'pointer-events:none; display:none; z-index:9999;';
+    document.body.appendChild(tip);
+  }
   const container = document.getElementById('latencyTrendChart');
   if (!buckets || buckets.length === 0) {
     container.innerHTML = '<div class="empty">No trend data yet — wait for more queries</div>';
@@ -456,13 +464,13 @@ function updateLatencyTrend(buckets) {
   const makePoints = (values, color, label) => buckets.map((b, i) => {
     const cx = (PAD.left + i * xStep).toFixed(1);
     const cy = (PAD.top + yScale(values[i])).toFixed(1);
-    const t  = new Date(b.bucketStart);
+    const t   = new Date(b.bucketStart);
     const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
-    const tip = `${time} — ${label}:${values[i]}ms (${b.queryCount} queries)`;
+    const tip  = `${time} — ${label}: ${values[i]}ms (${b.queryCount} queries)`;
     return `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.8"
-      pointer-events="all" style="cursor:pointer">
-      <title>${tip}</title>
-    </circle>`;
+      pointer-events="all" style="cursor:pointer"
+      onmouseenter="showChartTip(event,'${tip}')"
+      onmouseleave="hideChartTip()"/>`;
   }).join('');
 
   const p50Points = makePoints(p50Values, '#3b82f6', 'P50');
@@ -522,6 +530,20 @@ function exportAIContext() {
   a.download = 'ai-context_' + new Date().toISOString().replace(/[:.]/g, '-') + '.txt';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function showChartTip(event, text) {
+  const tip = document.getElementById('chartTooltip');
+  if (!tip) return;
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip.style.left = (event.clientX + 12) + 'px';
+  tip.style.top  = (event.clientY - 28) + 'px';
+}
+
+function hideChartTip() {
+  const tip = document.getElementById('chartTooltip');
+  if (tip) tip.style.display = 'none';
 }
 
 function nextPage() { currentPage++; renderPage(); }
