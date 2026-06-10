@@ -4,6 +4,7 @@ import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.ProjectInfoCollector;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
+import com.dbquality.metrics.MetricsCollector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -40,6 +42,8 @@ public class DashboardServer {
   private final java.util.function.Supplier<Connection> connectionSupplier;
   private final ProjectInfoCollector projectInfoCollector;
   private HttpServer server;
+  private final AIContextExporter aiContextExporter = new AIContextExporter();
+  private final MetricsCollector metricsCollector;
 
   /**
    * @param config               cấu hình thư viện — dùng để lấy port và các tham số khác
@@ -60,6 +64,7 @@ public class DashboardServer {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     this.projectInfoCollector = new ProjectInfoCollector(
         System.currentTimeMillis(), config.getDashboardPort());
+    this.metricsCollector = new MetricsCollector();
   }
 
   /**
@@ -79,6 +84,8 @@ public class DashboardServer {
     server.createContext("/ai-refresh", this::handleAIRefresh);
     server.createContext("/slow-queries", this::handleSlowQueries);
     server.createContext("/project-info", this::handleProjectInfo);
+    server.createContext("/export-ai-context", this::handleExportAIContext);
+    server.createContext("/metrics-trend", this::handleMetricsTrend);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -240,5 +247,26 @@ public class DashboardServer {
       sendResponse(exchange, 500, "application/json",
           "{\"error\":\"" + e.getMessage() + "\"}");
     }
+  }
+
+  private void handleExportAIContext(HttpExchange exchange) throws IOException {
+    try (java.sql.Connection conn = connectionSupplier.get()) {
+      QualityReport report = reportBuilder.build(conn, sqlContext);
+      Path file = aiContextExporter.export(report.getAiReadyContext(), "reports");
+      String json = mapper.writeValueAsString(
+          java.util.Map.of("file", file.toString(), "status", "exported"));
+      sendResponse(exchange, 200, "application/json", json);
+    } catch (Exception e) {
+      sendResponse(exchange, 500, "application/json",
+          "{\"error\":\"" + e.getMessage() + "\"}");
+    }
+  }
+
+  private void handleMetricsTrend(HttpExchange exchange) throws IOException {
+    // Sync records vào MetricsCollector
+    metricsCollector.clear();
+    sqlContext.getRecords().forEach(metricsCollector::record);
+    String json = mapper.writeValueAsString(metricsCollector.getBucketMetrics());
+    sendResponse(exchange, 200, "application/json", json);
   }
 }
