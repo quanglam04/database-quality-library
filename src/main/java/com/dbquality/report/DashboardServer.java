@@ -42,7 +42,6 @@ public class DashboardServer {
   private final java.util.function.Supplier<Connection> connectionSupplier;
   private final ProjectInfoCollector projectInfoCollector;
   private HttpServer server;
-  private final AIContextExporter aiContextExporter = new AIContextExporter();
   private final MetricsCollector metricsCollector;
 
   /**
@@ -84,7 +83,6 @@ public class DashboardServer {
     server.createContext("/ai-refresh", this::handleAIRefresh);
     server.createContext("/slow-queries", this::handleSlowQueries);
     server.createContext("/project-info", this::handleProjectInfo);
-    server.createContext("/export-ai-context", this::handleExportAIContext);
     server.createContext("/metrics-trend", this::handleMetricsTrend);
 
     server.start();
@@ -242,19 +240,6 @@ public class DashboardServer {
     try (java.sql.Connection conn = connectionSupplier.get()) {
       var info = projectInfoCollector.collect(conn);
       String json = mapper.writeValueAsString(info);
-      sendResponse(exchange, 200, "application/json", json);
-    } catch (Exception e) {
-      sendResponse(exchange, 500, "application/json",
-          "{\"error\":\"" + e.getMessage() + "\"}");
-    }
-  }
-
-  private void handleExportAIContext(HttpExchange exchange) throws IOException {
-    try (java.sql.Connection conn = connectionSupplier.get()) {
-      QualityReport report = reportBuilder.build(conn, sqlContext);
-      Path file = aiContextExporter.export(report.getAiReadyContext(), "reports");
-      String json = mapper.writeValueAsString(
-          java.util.Map.of("file", file.toString(), "status", "exported"));
       sendResponse(exchange, 200, "application/json", json);
     } catch (Exception e) {
       sendResponse(exchange, 500, "application/json",
