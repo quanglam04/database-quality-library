@@ -250,7 +250,7 @@ function updateSlowQueries(slowQueries) {
                              font-size:11px; transition:background 0.2s"
                       onmouseover="this.style.background='#1e40af'"
                       onmouseout="this.style.background='#1e3a5f'">
-                🔍 EXPLAIN
+                EXPLAIN
               </button>` : '<span style="font-size:11px; color:#475569">No plan</span>'}
           </div>
         </div>
@@ -453,15 +453,21 @@ function updateLatencyTrend(buckets) {
   }).join('');
 
   // Tooltip points — invisible circles for hover
-  const p99Points = buckets.map((b, i) => {
+  const makePoints = (values, color, label) => buckets.map((b, i) => {
     const cx = (PAD.left + i * xStep).toFixed(1);
-    const cy = (PAD.top + yScale(b.p99)).toFixed(1);
+    const cy = (PAD.top + yScale(values[i])).toFixed(1);
     const t  = new Date(b.bucketStart);
-    const label = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')} — P99:${b.p99}ms P95:${b.p95}ms P50:${b.p50}ms (${b.queryCount} queries)`;
-    return `<circle cx="${cx}" cy="${cy}" r="4" fill="#ef4444" opacity="0.8">
-      <title>${label}</title>
+    const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    const tip = `${time} — ${label}:${values[i]}ms (${b.queryCount} queries)`;
+    return `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.8"
+      pointer-events="all" style="cursor:pointer">
+      <title>${tip}</title>
     </circle>`;
   }).join('');
+
+  const p50Points = makePoints(p50Values, '#3b82f6', 'P50');
+  const p95Points = makePoints(p95Values, '#f59e0b', 'P95');
+  const p99Points = makePoints(p99Values, '#ef4444', 'P99');
 
   container.innerHTML = `
     <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
@@ -478,6 +484,8 @@ function updateLatencyTrend(buckets) {
       <path d="${toPath(p99Values)}" fill="none" stroke="#ef4444" stroke-width="2"/>
 
       <!-- Data points P99 -->
+      ${p50Points}
+      ${p95Points}
       ${p99Points}
 
       <!-- Axes -->
