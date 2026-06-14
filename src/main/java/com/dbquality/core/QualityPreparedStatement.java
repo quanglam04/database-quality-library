@@ -5,6 +5,7 @@ import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
 import com.dbquality.constant.Constant;
+import com.dbquality.util.SQLFilter;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -55,7 +56,7 @@ public class QualityPreparedStatement implements PreparedStatement {
 
   private void record(long executionTime, boolean success, String errorMessage) {
     // Bỏ qua DDL và system queries — chỉ capture DML
-    if (!isApplicationSQL(sql)) return;
+    if (!SQLFilter.isApplicationSQL(sql)) return;
 
     sqlContext.add(SQLRecord.builder()
         .sql(sql)
@@ -68,46 +69,6 @@ public class QualityPreparedStatement implements PreparedStatement {
         .build());
   }
 
-  private boolean isApplicationSQL(String sql) {
-    if (sql == null) return false;
-    String upper = sql.trim().toUpperCase();
-    return (upper.startsWith("SELECT")
-        || upper.startsWith("INSERT")
-        || upper.startsWith("UPDATE")
-        || upper.startsWith("DELETE"))
-        && !isSystemSQL(upper);
-  }
-
-  private boolean isSystemSQL(String upper) {
-    // HikariCP / connection pool health check
-    if (upper.equals("SELECT 1")
-        || upper.equals("SELECT 1 FROM DUAL")
-        || upper.contains("/* PING */")
-        || upper.contains("/* ISVALID */")) return true;
-
-    // Hibernate schema validation — SELECT * FROM table WHERE 1=0
-    if (upper.contains("WHERE 1=0")) return true;
-
-    // Hibernate/Spring schema check
-    if (upper.contains("INFORMATION_SCHEMA")) return true;
-    if (upper.contains("PERFORMANCE_SCHEMA")) return true;
-
-    // Flyway
-    if (upper.contains("FLYWAY_SCHEMA_HISTORY")
-        || upper.contains("FLYWAY_SCHEMA_HIST")
-        || upper.contains("SCHEMA_VERSION")) return true;
-
-    // Liquibase
-    if (upper.contains("DATABASECHANGELOG")
-        || upper.contains("DATABASECHANGELOGLOCK")) return true;
-
-    // Flyway internal system queries
-    if (upper.contains("SELECT VERSION()")
-        || upper.contains("SELECT DATABASE()")
-        || upper.contains("SELECT @@")           // MySQL system variables
-        || upper.contains("SHOW ")) return true; // SHOW VARIABLES, SHOW STATUS...
-    return false;
-  }
 
   // ── Intercept execute methods ─────────────────────────────────────
 
