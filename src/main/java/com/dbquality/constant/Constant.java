@@ -65,6 +65,7 @@ public class Constant {
       "com.intellij.",
       "org.springframework.",
       "org.hibernate.",
+      "org.flywaydb.",
       "com.fasterxml.jackson.",
       "jakarta.servlet.",
       "javax.servlet.",
