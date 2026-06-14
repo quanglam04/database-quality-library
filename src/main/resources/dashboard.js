@@ -535,10 +535,22 @@ function exportAIContext() {
 function showChartTip(event, text) {
   const tip = document.getElementById('chartTooltip');
   if (!tip) return;
+  tip.style.whiteSpace = 'pre-line';
+  tip.style.maxWidth = '280px';
+  tip.style.lineHeight = '1.6';
   tip.textContent = text;
   tip.style.display = 'block';
-  tip.style.left = (event.clientX + 12) + 'px';
-  tip.style.top  = (event.clientY - 28) + 'px';
+
+  // Lấy width thực sau khi render
+  const tipWidth = tip.offsetWidth;
+  const spaceRight = window.innerWidth - event.clientX;
+
+  if (spaceRight < tipWidth + 20) {
+    tip.style.left = (event.clientX - tipWidth - 4) + 'px';
+  } else {
+    tip.style.left = (event.clientX + 4) + 'px';
+  }
+  tip.style.top = (event.clientY - 8) + 'px';
 }
 
 function hideChartTip() {
