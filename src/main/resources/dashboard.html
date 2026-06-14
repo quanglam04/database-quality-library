@@ -104,6 +104,16 @@
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
         <span class="section-title">Findings</span>
+        <select id="severityFilter" onchange="filterFindings()"
+                style="margin-left:12px; background:#0f172a; color:#94a3b8;
+                 border:1px solid #334155; border-radius:6px;
+                 padding:4px 10px; font-size:12px; cursor:pointer">
+          <option value="ALL">ALL</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="WARNING">WARNING</option>
+        </select>
         <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
       </div>
       <div class="findings-list" id="findingsList">

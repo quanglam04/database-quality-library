@@ -1,5 +1,6 @@
 let currentPage = 0;
 let allFindings = [];
+let filteredFindings = [];
 const PAGE_SIZE = 10;
 
 async function loadData() {
@@ -152,7 +153,14 @@ function updateFindings(findings) {
   const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, WARNING: 3 };
   allFindings = findings.sort((a, b) =>
     (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
-  const maxPage = Math.max(0, Math.ceil(allFindings.length / PAGE_SIZE) - 1);
+
+  // Giữ filter hiện tại khi data refresh
+  const severity = document.getElementById('severityFilter')?.value ?? 'ALL';
+  filteredFindings = severity === 'ALL'
+    ? allFindings
+    : allFindings.filter(f => f.severity === severity);
+
+  const maxPage = Math.max(0, Math.ceil(filteredFindings.length / PAGE_SIZE) - 1);
   currentPage = Math.min(currentPage, maxPage);
   renderPage();
 }
@@ -160,8 +168,8 @@ function updateFindings(findings) {
 function renderPage() {
   const start = currentPage * PAGE_SIZE;
   const end   = start + PAGE_SIZE;
-  const page  = allFindings.slice(start, end);
-  const total = allFindings.length;
+  const page  = filteredFindings.slice(start, end);
+  const total = filteredFindings.length;
 
   document.getElementById('findingsList').innerHTML = page.map(f => `
     <div class="finding-item">
@@ -551,6 +559,15 @@ function showChartTip(event, text) {
     tip.style.left = (event.clientX + 4) + 'px';
   }
   tip.style.top = (event.clientY - 8) + 'px';
+}
+
+function filterFindings() {
+  const severity = document.getElementById('severityFilter').value;
+  filteredFindings = severity === 'ALL'
+    ? allFindings
+    : allFindings.filter(f => f.severity === severity);
+  currentPage = 0;
+  renderPage();
 }
 
 function hideChartTip() {
