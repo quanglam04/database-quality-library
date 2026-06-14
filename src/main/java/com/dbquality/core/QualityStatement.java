@@ -192,6 +192,12 @@ public class QualityStatement implements Statement {
     if (upper.contains("DATABASECHANGELOG")
         || upper.contains("DATABASECHANGELOGLOCK")) return true;
 
+    // Flyway internal system queries
+    if (upper.contains("SELECT VERSION()")
+        || upper.contains("SELECT DATABASE()")
+        || upper.contains("SELECT @@")           // MySQL system variables
+        || upper.contains("SHOW ")) return true; // SHOW VARIABLES, SHOW STATUS...
+
     return false;
   }
 
