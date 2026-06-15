@@ -1,5 +1,7 @@
 package com.dbquality.rule;
 
+import com.dbquality.constant.Severity;
+
 /**
  * Đại diện cho một vấn đề được phát hiện bởi một rule.
  *

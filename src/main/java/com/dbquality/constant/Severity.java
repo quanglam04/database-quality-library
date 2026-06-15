@@ -1,4 +1,4 @@
-package com.dbquality.rule;
+package com.dbquality.constant;
 
 /**
  * Mức độ nghiêm trọng của một vấn đề được phát hiện bởi Rule Engine.
