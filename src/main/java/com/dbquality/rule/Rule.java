@@ -2,6 +2,7 @@ package com.dbquality.rule;
 
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
+import com.dbquality.constant.Severity;
 
 /**
  * Ngày tạo: 25/05/2026 <br><br>

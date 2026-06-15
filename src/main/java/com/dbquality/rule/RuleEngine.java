@@ -3,6 +3,7 @@ package com.dbquality.rule;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.impl.FullTableScanCandidateRule;
 import com.dbquality.rule.impl.MissingIndexSuggestionRule;
 import com.dbquality.rule.impl.SuspiciousDataTypeRule;

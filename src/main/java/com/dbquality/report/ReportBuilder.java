@@ -7,17 +7,14 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
-import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
-import com.dbquality.rule.Severity;
+import com.dbquality.constant.Severity;
 
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainParserFactory;
 import com.dbquality.explain.ExplainResult;
-import java.sql.ResultSet;
-import java.sql.Statement;
 
 import java.sql.Connection;
 import java.sql.SQLException;

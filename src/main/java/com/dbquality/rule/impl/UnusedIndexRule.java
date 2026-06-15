@@ -6,6 +6,7 @@ import com.dbquality.collector.SQLRecord;
 import com.dbquality.collector.model.Index;
 import com.dbquality.collector.model.Table;
 import com.dbquality.constant.Constant.RuleName;
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.*;
 
 import com.dbquality.util.SchemaFilter;

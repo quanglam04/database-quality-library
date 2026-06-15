@@ -2,10 +2,10 @@ package com.dbquality.rule.impl;
 
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
-import com.dbquality.collector.SQLRecord;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.Table;
 import com.dbquality.constant.Constant.RuleName;
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
