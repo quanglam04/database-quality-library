@@ -15,11 +15,15 @@ public class SQLFilter {
   public static boolean isApplicationSQL(String sql) {
     if (sql == null) return false;
     String upper = sql.trim().toUpperCase();
-    return (upper.startsWith("SELECT")
+    boolean result = (upper.startsWith("SELECT")
         || upper.startsWith("INSERT")
         || upper.startsWith("UPDATE")
         || upper.startsWith("DELETE"))
         && !isSystemSQL(upper);
+    if (result) {
+      System.out.println("[DB Quality DEBUG] CAPTURED: " + upper.substring(0, Math.min(100, upper.length())));
+    }
+    return result;
   }
 
   /**
