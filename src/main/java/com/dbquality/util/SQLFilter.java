@@ -80,6 +80,22 @@ public class SQLFilter {
         || upper.contains("CURRENT_SCHEMA")
         || upper.contains("SELECT COUNT(*) FROM PG_NAMESPACE")) return true;
 
+    // Flyway PostgreSQL — remaining queries
+    if (upper.contains("CURRENT_USER")
+        || upper.contains("CURRENT_SCHEMA")
+        || upper.contains("SET_CONFIG(")
+        || upper.contains("PG_TRY_ADVISORY")
+        || upper.contains("PG_ADVISORY")) return true;
+
+    // SELECT COUNT(*) FROM pg_namespace — dùng contains thay vì exact match
+    if (upper.contains("FROM PG_NAMESPACE")) return true;
+
+    // SELECT EXISTS với pg_catalog
+    if (upper.contains("SELECT EXISTS") && upper.contains("PG_CATALOG")) return true;
+    if (upper.contains("SELECT EXISTS") && upper.contains("PG_NAMESPACE")) return true;
+
     return false;
+
+
   }
 }
