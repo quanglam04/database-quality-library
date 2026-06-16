@@ -61,6 +61,18 @@ public class SQLFilter {
         || upper.contains("RELEASE_LOCK(")
         || upper.contains("SUBSTRING_INDEX(USER()")) return true;
 
+    // Flyway PostgreSQL — pg_catalog queries
+    if (upper.contains("PG_CATALOG")
+        || upper.contains("PG_NAMESPACE")
+        || upper.contains("PG_CLASS")
+        || upper.contains("PG_TYPE")
+        || upper.contains("PG_PROC")
+        || upper.contains("PG_DEPEND")) return true;
+
+    // Flyway PostgreSQL — schema existence check
+    if (upper.contains("SELECT COUNT(*) FROM PG_NAMESPACE")
+        || upper.contains("SELECT EXISTS")) return true;
+
     return false;
   }
 }
