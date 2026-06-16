@@ -515,12 +515,12 @@ function updateLatencyTrend(buckets) {
       ${xLabels}
 
       <!-- Legend -->
-      <line x1="${W - 120}" y1="12" x2="${W - 105}" y2="12" stroke="#3b82f6" stroke-width="2"/>
-      <text x="${W - 100}" y="16" fill="#64748b" font-size="10">P50</text>
-      <line x1="${W - 80}" y1="12" x2="${W - 65}" y2="12" stroke="#f59e0b" stroke-width="2"/>
-      <text x="${W - 60}" y="16" fill="#64748b" font-size="10">P95</text>
-      <line x1="${W - 40}" y1="12" x2="${W - 25}" y2="12" stroke="#ef4444" stroke-width="2"/>
-      <text x="${W - 20}" y="16" fill="#64748b" font-size="10">P99</text>
+      <line x1="${W - 120}" y1="${H - 14}" x2="${W - 105}" y2="${H - 14}" stroke="#3b82f6" stroke-width="2"/>
+      <text x="${W - 100}" y="${H - 10}" fill="#64748b" font-size="10">P50</text>
+      <line x1="${W - 80}" y1="${H - 14}" x2="${W - 65}" y2="${H - 14}" stroke="#f59e0b" stroke-width="2"/>
+      <text x="${W - 60}" y="${H - 10}" fill="#64748b" font-size="10">P95</text>
+      <line x1="${W - 40}" y1="${H - 14}" x2="${W - 25}" y2="${H - 14}" stroke="#ef4444" stroke-width="2"/>
+      <text x="${W - 20}" y="${H - 10}" fill="#64748b" font-size="10">P99</text>
     </svg>`;
 }
 
