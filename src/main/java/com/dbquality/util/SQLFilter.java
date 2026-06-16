@@ -73,6 +73,13 @@ public class SQLFilter {
     if (upper.contains("SELECT COUNT(*) FROM PG_NAMESPACE")
         || upper.contains("SELECT EXISTS")) return true;
 
+    // Flyway PostgreSQL — advisory lock, config, schema
+    if (upper.contains("PG_TRY_ADVISORY")
+        || upper.contains("PG_ADVISORY")
+        || upper.contains("SET_CONFIG(")
+        || upper.contains("CURRENT_SCHEMA")
+        || upper.contains("SELECT COUNT(*) FROM PG_NAMESPACE")) return true;
+
     return false;
   }
 }
