@@ -389,11 +389,11 @@ Kết quả được hiển thị trong modal khi click nút **EXPLAIN** trên t
 
 | Database | Cú pháp | Trạng thái |
 |---|---|---|
-| MySQL 5.6+ | `EXPLAIN FORMAT=JSON` | ✅ Hỗ trợ |
-| MariaDB 10.1+ | `EXPLAIN FORMAT=JSON` | ✅ Hỗ trợ |
-| PostgreSQL | `EXPLAIN (FORMAT JSON, ANALYZE)` | ✅ Hỗ trợ |
-| SQL Server | XML execution plan | 🔄 Planned |
-| Oracle | `EXPLAIN PLAN FOR` | 🔄 Planned |
+| MySQL 5.6+ | `EXPLAIN FORMAT=JSON` |  Hỗ trợ |
+| MariaDB 10.1+ | `EXPLAIN FORMAT=JSON` |  Hỗ trợ |
+| PostgreSQL | `EXPLAIN (FORMAT JSON, ANALYZE)` |  Hỗ trợ |
+| SQL Server | XML execution plan |  Planned |
+| Oracle | `EXPLAIN PLAN FOR` |  Planned |
 | Khác | — | Bỏ qua, không ảnh hưởng tính năng khác |
 
 ---
@@ -413,13 +413,13 @@ quality.ai.model=gemini-2.5-flash
 
 ### Providers được hỗ trợ
 
-| Provider | Model ví dụ | Trạng thái |
-|---|---|---|
-| OpenAI | `gpt-4o`, `gpt-4-turbo` | ✅ |
-| Anthropic Claude | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` | ✅ |
-| Google Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` | ✅ |
-| DeepSeek | `deepseek-chat` | 🔄 Đang phát triển |
-| Grok (xAI) | `grok-2` | 🔄 Đang phát triển |
+| Provider | Model ví dụ | Trạng thái         |
+|---|---|--------------------|
+| OpenAI | `gpt-4o`, `gpt-4-turbo` | Có                 |
+| Anthropic Claude | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` | Có                 |
+| Google Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` | Có                 |
+| DeepSeek | `deepseek-chat` | Đang phát triển    |
+| Grok (xAI) | `grok-2` | Đang phát triển    |
 
 **Fallback:** Nếu AI bị tắt hoặc API call thất bại (quota, invalid key, overload), thư viện tự động fallback về rule-based output — không throw exception, ứng dụng vẫn hoạt động bình thường.
 
@@ -564,15 +564,15 @@ quality.ai.model=your-model
 
 Thư viện hoạt động với **mọi SQL database có JDBC driver**. Execution Plan Analysis yêu cầu parser riêng cho từng vendor:
 
-| Database | JDBC Wrapping | Rule Engine | Execution Plan |
-|---|---|---|---|
-| MySQL 5.6+ | ✅ | ✅ | ✅ |
-| MariaDB 10.1+ | ✅ | ✅ | ✅ |
-| PostgreSQL | ✅ | ✅ | ✅ |
-| SQL Server | ✅ | ✅ | 🔄 Planned |
-| Oracle | ✅ | ✅ | 🔄 Planned |
-| H2 | ✅ | ✅ | ❌ |
-| SQLite | ✅ | ✅ | ❌ |
+| Database | JDBC Wrapping | Rule Engine | Execution Plan  |
+|---|---------------|---|-----------------|
+| MySQL 5.6+ | Có            | Có | Có              |
+| MariaDB 10.1+ | Có             | Có | Có              |
+| PostgreSQL | Có             | Có | Có              |
+| SQL Server | Có             | Có | Đang phát triển |
+| Oracle | Có             | Có | Đang phát triển      |
+| H2 | Có             | Có | Không           |
+| SQLite | Có             | Có | Không           |
 
 > Database chưa có Execution Plan parser → tính năng đó bị bỏ qua, các tính năng khác không bị ảnh hưởng.
 

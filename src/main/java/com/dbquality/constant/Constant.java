@@ -44,7 +44,7 @@ public class Constant {
     public static String MySQL = "MYSQL";
     public static String MariaDB = "MARIADB";
     public static String PostgreSQL = "POSTGRESQL";
-    public static String SQlServer = "SQLSERVER";
+    public static String SQlServer = "MICROSOFT SQL SERVER";
     public static String Oracle = "ORACLE";
   }
 

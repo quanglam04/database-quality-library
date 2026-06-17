@@ -1,5 +1,6 @@
 package com.dbquality.explain.impl;
 
+import com.dbquality.constant.Constant.DatabaseName;
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainResult;
 import com.dbquality.rule.Finding;
@@ -26,7 +27,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
   @Override
   public boolean supports(String databaseProductName) {
     if (databaseProductName == null) return false;
-    return databaseProductName.toUpperCase().contains("POSTGRESQL");
+    return databaseProductName.toUpperCase().contains(DatabaseName.PostgreSQL);
   }
 
   @Override
