@@ -630,7 +630,7 @@ db-quality-library/
 │   │       ├── MySQLExplainParser.java
 │   │       ├── MariaDBExplainParser.java
 │   │       ├── PostgreSQLExplainParser.java
-│   │       ├── SQLServerExplainParser.java # Planned
+│   │       ├── SQLServerExplainParser.java 
 │   │       └── OracleExplainParser.java    # Planned
 │   │
 │   ├── metrics/                           # Latency metrics
