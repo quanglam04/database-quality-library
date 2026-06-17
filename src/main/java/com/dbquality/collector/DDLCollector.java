@@ -35,7 +35,6 @@ public class DDLCollector {
   }
 
   //  Thu thập danh sách tables
-
   private List<Table> collectTables(DatabaseMetaData meta,
       String catalog,
       String schema) throws SQLException {
@@ -55,7 +54,6 @@ public class DDLCollector {
   }
 
   //  Thu thập columns
-
   private List<Column> collectColumns(DatabaseMetaData meta,
       String catalog,
       String schema,
@@ -76,7 +74,6 @@ public class DDLCollector {
   }
 
   //  Thu thập primary key columns
-
   private List<String> collectPrimaryKeyColumns(DatabaseMetaData meta,
       String catalog,
       String schema,
@@ -91,7 +88,6 @@ public class DDLCollector {
   }
 
   //  Thu thập indexes
-
   private List<Index> collectIndexes(DatabaseMetaData meta,
       String catalog,
       String schema,
@@ -131,7 +127,6 @@ public class DDLCollector {
   }
 
   //  Thu thập foreign keys
-
   private List<ForeignKey> collectForeignKeys(DatabaseMetaData meta,
       String catalog,
       String schema,
@@ -151,7 +146,6 @@ public class DDLCollector {
   }
 
   //  Helper
-
   private String getSchema(Connection connection) {
     try {
       return connection.getSchema();

@@ -1,6 +1,5 @@
 package com.dbquality.report;
 
-import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.ProjectInfoCollector;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
@@ -15,22 +14,27 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * Embedded HTTP server cung cấp dashboard realtime.
+ * Embedded HTTP dashboard server cho DB Quality Library.
  *
- * <p>Sử dụng JDK built-in HttpServer nên không cần thêm dependency.</p>
- *
- * <p>Các endpoint được hỗ trợ:</p>
+ * <p>Khởi động tại {@code http://localhost:{port}} (mặc định port 9876)
+ * khi {@code quality.dashboard.enabled=true}.</p>
  *
  * <ul>
- *   <li><b>GET /</b> - Dashboard HTML</li>
- *   <li><b>GET /metrics</b> - Metrics realtime (JSON)</li>
- *   <li><b>GET /findings</b> - Findings realtime (JSON)</li>
- *   <li><b>GET /report</b> - Báo cáo đầy đủ (JSON)</li>
+ *   <li><b>GET /</b> — Dashboard HTML</li>
+ *   <li><b>GET /metrics</b> — Metrics realtime (JSON)</li>
+ *   <li><b>GET /findings</b> — Findings realtime (JSON)</li>
+ *   <li><b>GET /report</b> — Báo cáo đầy đủ (JSON)</li>
+ *   <li><b>GET /slow-queries</b> — Top slow queries kèm execution plan (JSON)</li>
+ *   <li><b>GET /ai-context</b> — AI-ready context prompt (JSON)</li>
+ *   <li><b>GET /project-info</b> — Thông tin project, JVM, DB (JSON)</li>
+ *   <li><b>GET /metrics-trend</b> — Latency trend theo time bucket 30s (JSON)</li>
+ *   <li><b>POST /ai-refresh</b> — Reset AI cache để gọi lại LLM</li>
+ *   <li><b>GET /dashboard.js</b> — Dashboard JavaScript</li>
+ *   <li><b>GET /dashboard.css</b> — Dashboard CSS</li>
  * </ul>
  */
 public class DashboardServer {
@@ -97,7 +101,7 @@ public class DashboardServer {
     if (server != null) server.stop(0);
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────
+  //  Handlers
 
   private void handleDashboard(HttpExchange exchange) throws IOException {
     try {
@@ -192,7 +196,7 @@ public class DashboardServer {
     }
   }
 
-  // ── Helper ────────────────────────────────────────────────────────
+  //  Helper
 
   private QualityReport buildReport() throws SQLException {
     try (Connection conn = connectionSupplier.get()) {
@@ -212,7 +216,7 @@ public class DashboardServer {
     }
   }
 
-  // ── Dashboard HTML ────────────────────────────────────────────────
+  //  Dashboard HTML
 
   private String buildDashboardHTML() throws IOException {
     try (java.io.InputStream is = getClass()

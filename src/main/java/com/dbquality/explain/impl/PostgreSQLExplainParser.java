@@ -72,7 +72,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
     // Tổng rows thực tế = Actual Rows * Actual Loops
     long totalRows = (long) (actualRows * actualLoops);
 
-    // ── Seq Scan — Full Table Scan ────────────────────────────────────
+    //  Seq Scan
     if ("Seq Scan".equals(nodeType) && relation != null) {
       findings.add(Finding.builder()
           .rule("FULL_TABLE_SCAN")
@@ -85,7 +85,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
           .build());
     }
 
-    // ── Index Scan — có index nhưng scan nhiều rows ───────────────────
+    //  Index Scan
     if ("Index Scan".equals(nodeType) && relation != null && totalRows > 1000) {
       findings.add(Finding.builder()
           .rule("FULL_INDEX_SCAN")
@@ -98,7 +98,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
           .build());
     }
 
-    // ── Estimate lệch xa thực tế — planner không có đủ thống kê ──────
+    //  Estimate lệch xa thực tế — planner không có đủ thống kê
     if (planRows > 0 && actualRows > 0 && relation != null) {
       double ratio = (double) actualRows / planRows;
       if (ratio > 10 || ratio < 0.1) {
@@ -114,7 +114,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
       }
     }
 
-    // ── Sort không dùng index ─────────────────────────────────────────
+    //  Sort không dùng index
     if ("Sort".equals(nodeType)) {
       String sortMethod = plan.path("Sort Method").asText("");
       if (sortMethod.contains("external") || sortMethod.contains("disk")) {
@@ -129,7 +129,7 @@ public class PostgreSQLExplainParser implements ExplainParser {
       }
     }
 
-    // ── Nested Loop với nhiều rows — tiềm ẩn N+1 ─────────────────────
+    //  Nested Loop với nhiều rows — tiềm ẩn N+1
     if ("Nested Loop".equals(nodeType) && totalRows > 10000) {
       findings.add(Finding.builder()
           .rule("NESTED_LOOP_LARGE")

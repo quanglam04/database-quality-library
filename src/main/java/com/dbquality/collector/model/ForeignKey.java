@@ -24,7 +24,6 @@ public class ForeignKey {
     this.referencedColumn = referencedColumn;
   }
 
-  // Getters
   public String getName() { return name; }
   public String getColumn() { return column; }
   public String getReferencedTable() { return referencedTable; }
