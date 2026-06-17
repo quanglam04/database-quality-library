@@ -52,7 +52,7 @@ public class QualityPreparedStatement implements PreparedStatement {
     return "unknown";
   }
 
-  // ── Record SQL execution ──────────────────────────────────────────
+  //  Record SQL execution
 
   private void record(long executionTime, boolean success, String errorMessage) {
     // Bỏ qua DDL và system queries — chỉ capture DML
@@ -70,7 +70,7 @@ public class QualityPreparedStatement implements PreparedStatement {
   }
 
 
-  // ── Intercept execute methods ─────────────────────────────────────
+  //  Intercept execute methods
 
   @Override
   public ResultSet executeQuery() throws SQLException {
@@ -111,7 +111,7 @@ public class QualityPreparedStatement implements PreparedStatement {
     }
   }
 
-  // ── Capture parameters ────────────────────────────────────────────
+  //  Capture parameters
 
   @Override
   public void setNull(int i, int sqlType) throws SQLException {

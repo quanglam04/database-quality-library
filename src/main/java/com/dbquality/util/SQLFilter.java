@@ -1,5 +1,7 @@
 package com.dbquality.util;
 
+import java.util.Set;
+
 /**
  * Utility class lọc các SQL system/internal không cần intercept.
  * Dùng chung cho QualityPreparedStatement và QualityStatement.
@@ -10,20 +12,34 @@ public class SQLFilter {
 
   /**
    * Kiểm tra SQL có phải application SQL cần intercept không.
-   * Chỉ capture DML (SELECT/INSERT/UPDATE/DELETE) và không phải system SQL.
+   * Chỉ capture DML (SELECT/INSERT/UPDATE/DELETE) và loại trừ system SQL
+   * (HikariCP health check, Hibernate validation, Flyway, Liquibase, v.v.)
+   *
+   * @see #isSystemSQL(String)
+   * @see #isDMLStatement(String)
    */
   public static boolean isApplicationSQL(String sql) {
     if (sql == null) return false;
     String upper = sql.trim().toUpperCase();
-    boolean result = (upper.startsWith("SELECT")
+    return (upper.startsWith("SELECT")
         || upper.startsWith("INSERT")
         || upper.startsWith("UPDATE")
         || upper.startsWith("DELETE"))
         && !isSystemSQL(upper);
-    if (result) {
-      System.out.println("[DB Quality DEBUG] CAPTURED: " + upper.substring(0, Math.min(100, upper.length())));
-    }
-    return result;
+  }
+
+  /**
+   * Kiểm tra SQL có phải DML statement không.
+   * Khác với {@link #isApplicationSQL}, không loại trừ system SQL —
+   * dùng để classify SQL trong report, không dùng để filter intercept.
+   */
+  public static boolean isDMLStatement(String sql) {
+    if (sql == null) return false;
+    String upper = sql.trim().toUpperCase();
+    return upper.startsWith("SELECT")
+        || upper.startsWith("INSERT")
+        || upper.startsWith("UPDATE")
+        || upper.startsWith("DELETE");
   }
 
   /**
@@ -99,7 +115,19 @@ public class SQLFilter {
     if (upper.contains("SELECT EXISTS") && upper.contains("PG_NAMESPACE")) return true;
 
     return false;
+  }
 
-
+  /**
+   * Kiểm tra từ có phải SQL keyword không.
+   * Dùng để phân tích cấu trúc SQL trong report.
+   */
+  public static boolean isSQLKeyword(String word) {
+    Set<String> keywords = java.util.Set.of(
+        "SELECT", "WHERE", "AND", "OR", "NOT", "IN", "IS",
+        "NULL", "SET", "VALUES", "ON", "AS", "BY", "ORDER",
+        "GROUP", "HAVING", "LIMIT", "OFFSET", "INNER", "LEFT",
+        "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL"
+    );
+    return keywords.contains(word.toUpperCase());
   }
 }

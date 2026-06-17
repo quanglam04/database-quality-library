@@ -3,6 +3,7 @@ package com.dbquality.rule.impl;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
+import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
 import com.dbquality.rule.*;
@@ -75,7 +76,7 @@ public class FullTableScanCandidateRule implements Rule {
     if (upper.contains("WHERE") && upper.contains(" OR ")) {
       return "OR trong WHERE clause — có thể bypass index";
     }
-    if (upper.matches(".*WHERE\\s+\\w+\\s*\\(.*")) {
+    if (upper.matches(Constant.FUNCTION_ON_COLUMN_PATTERN)) {
       return "Function trên cột trong WHERE — index không được sử dụng";
     }
     return null;

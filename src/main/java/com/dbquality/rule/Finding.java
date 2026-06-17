@@ -75,6 +75,7 @@ public class Finding {
 
     public Finding build() { return finding; }
   }
+
   public String getRule() { return rule; }
   public Severity getSeverity() { return severity; }
   public String getTable() { return table; }

@@ -79,4 +79,13 @@ public class Constant {
       "com.dbquality.config."
   );
 
+  // Rule threshold
+
+  // Regex patterns
+  public static final String WHERE_COLUMN_PATTERN = "WHERE\\s+(\\w+)\\s*[=><]";
+  public static final String JDBC_PASSWORD_MASK_PATTERN = "(?i)(password|pwd)=[^&;]*";
+  public static final String SQL_TABLE_NAME_PATTERN = "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)";
+  public static final String FUNCTION_ON_COLUMN_PATTERN = ".*WHERE\\s+\\w+\\s*\\(.*";
+  // Scoring weights
+
 }

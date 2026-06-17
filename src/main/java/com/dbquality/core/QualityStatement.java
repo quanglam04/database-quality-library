@@ -26,7 +26,7 @@ public class QualityStatement implements Statement {
     this.config = config;
   }
 
-  // ── Intercept execute methods ─────────────────────────────────────
+  //  Intercept execute methods
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
@@ -145,7 +145,7 @@ public class QualityStatement implements Statement {
     }
   }
 
-  // ── Record SQL execution ──────────────────────────────────────────
+  //  Record SQL execution
 
   private void record(String sql, long executionTime, boolean success, String errorMessage) {
     if (!SQLFilter.isApplicationSQL(sql)) return;
@@ -174,7 +174,7 @@ public class QualityStatement implements Statement {
     return "unknown";
   }
 
-  // ── Delegate các method còn lại về original ───────────────────────
+  //  Delegate các method còn lại về original
 
   @Override public void close() throws SQLException { original.close(); }
   @Override public int getMaxFieldSize() throws SQLException { return original.getMaxFieldSize(); }
