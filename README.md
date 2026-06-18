@@ -9,6 +9,9 @@
 
 ---
 
+![Demo](./public/guide.gif)
+---
+
 ## Mục lục
 
 - [Cách hoạt động](#cách-hoạt-động)
@@ -285,6 +288,8 @@ Dashboard được chia thành 4 tab:
 | **AI** | AI-ready context để copy/export, AI Insights từ LLM (nếu được bật) |
 | **Project** | Thông tin database, framework, ORM, connection pool, JVM, memory |
 
+
+
 <p align="center">
   <img src="public/tab-finding.png" alt="Dashboard Findings" width="800"/>
   <br/>
@@ -292,10 +297,23 @@ Dashboard được chia thành 4 tab:
 </p>
 
 <p align="center">
+  <img src="public/tab-finding-filter.png" alt="Dashboard Findings" width="800"/>
+  <br/>
+  <em>Filter theo severity</em>
+</p>
+
+<p align="center">
   <img src="public/tab-ai.png" alt="Dashboard AI" width="800"/>
   <br/>
   <em>Tab AI — AI-ready context và AI Insights từ LLM</em>
 </p>
+
+<p align="center">
+  <img src="public/tab-ai-2.png" alt="Dashboard AI" width="800"/>
+  <br/>
+  <em>Tab AI — AI-ready context và AI Insights từ LLM</em>
+</p>
+
 
 <p align="center">
   <img src="public/tab-project.png" alt="Dashboard Project" width="800"/>
@@ -380,9 +398,9 @@ Với mỗi slow query, thư viện tự động chạy `EXPLAIN` và parse kế
 Kết quả được hiển thị trong modal khi click nút **EXPLAIN** trên tab Overview.
 
 <p align="center">
-  <img src="public/execution-plan.png" alt="Execution plan" width="800"/>
+  <img src="public/tab-overview-execution-plan.png" alt="Dashboard Findings" width="800"/>
   <br/>
-  <em>Execution Plan modal — phân tích chi tiết query chậm</em>
+  <em>Execution Plan cho những câu queries chạy vượt ngưỡng</em>
 </p>
 
 ### Database được hỗ trợ cho Execution Plan
