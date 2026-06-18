@@ -1,8 +1,8 @@
 package com.dbquality.ai.impl;
 
 import com.dbquality.ai.LLMProvider;
-import com.dbquality.ai.LLMResponse;
 import com.dbquality.constant.Constant;
+import com.dbquality.util.AIProviderUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -35,21 +35,6 @@ public class OpenAIProvider implements LLMProvider {
 
   @Override
   public String call(String prompt) {
-    LLMResponse response = callWithResponse(prompt);
-    return response.isSuccess() ? response.getContent() : response.getErrorMessage();
-  }
-
-  @Override
-  public boolean isAvailable() {
-    return apiKey != null && !apiKey.isBlank();
-  }
-
-  @Override
-  public String getProviderName() {
-    return "OpenAI";
-  }
-
-  private LLMResponse callWithResponse(String prompt) {
     try {
       String requestBody = mapper.writeValueAsString(java.util.Map.of(
           "model", model,
@@ -72,27 +57,27 @@ public class OpenAIProvider implements LLMProvider {
           HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() != 200) {
-        return LLMResponse.failure(parseErrorMessage("OpenAI", response.statusCode(), response.body()));
+        return AIProviderUtil.parseErrorMessage("OpenAI", response.statusCode(), response.body());
       }
 
       JsonNode json = mapper.readTree(response.body());
-      String content = json.path("choices").get(0)
+      return json.path("choices").get(0)
           .path("message").path("content").asText();
-      return LLMResponse.success(content);
 
     } catch (Exception e) {
-      return LLMResponse.failure("OpenAI call failed: " + e.getMessage());
+      return "OpenAI call failed: " + e.getMessage();
     }
   }
 
-  private String parseErrorMessage(String provider, int statusCode, String body) {
-    String friendly = switch (statusCode) {
-      case 429 -> "Đã vượt quota API. Vui lòng thử lại sau.";
-      case 401, 403 -> "API key không hợp lệ hoặc hết hạn.";
-      case 503 -> "Dịch vụ AI tạm thời quá tải. Vui lòng thử lại sau.";
-      case 404 -> "Model không tồn tại. Kiểm tra lại quality.ai.model.";
-      default  -> "Lỗi " + statusCode + ". Vui lòng thử lại sau.";
-    };
-    return "[" + provider + "] " + friendly;
+  @Override
+  public boolean isAvailable() {
+    return apiKey != null && !apiKey.isBlank();
   }
+
+  @Override
+  public String getProviderName() {
+    return "OpenAI";
+  }
+
+
 }

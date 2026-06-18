@@ -4,7 +4,7 @@ import com.dbquality.constant.Constant.DatabaseName;
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainResult;
 import com.dbquality.rule.Finding;
-import com.dbquality.rule.Severity;
+import com.dbquality.constant.Severity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

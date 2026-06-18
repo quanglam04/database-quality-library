@@ -6,8 +6,10 @@ import com.dbquality.collector.SQLRecord;
 import com.dbquality.collector.model.Index;
 import com.dbquality.collector.model.Table;
 import com.dbquality.constant.Constant.RuleName;
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.*;
 
+import com.dbquality.util.SchemaFilter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +37,7 @@ public class UnusedIndexRule implements Rule {
     if (sql.getRecords().isEmpty()) return new RuleResult(findings);
 
     for (Table table : ddl.getTables()) {
+      if (SchemaFilter.isSystemTable(table.getName())) continue;
       for (Index index : table.getIndexes()) {
         // Bỏ qua Primary Key index
         if (isPrimaryKeyIndex(index.getName())) continue;

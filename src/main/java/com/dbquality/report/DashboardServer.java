@@ -1,9 +1,9 @@
 package com.dbquality.report;
 
-import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.ProjectInfoCollector;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityConfig;
+import com.dbquality.metrics.MetricsCollector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -18,17 +18,23 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * Embedded HTTP server cung cấp dashboard realtime.
+ * Embedded HTTP dashboard server cho DB Quality Library.
  *
- * <p>Sử dụng JDK built-in HttpServer nên không cần thêm dependency.</p>
- *
- * <p>Các endpoint được hỗ trợ:</p>
+ * <p>Khởi động tại {@code http://localhost:{port}} (mặc định port 9876)
+ * khi {@code quality.dashboard.enabled=true}.</p>
  *
  * <ul>
- *   <li><b>GET /</b> - Dashboard HTML</li>
- *   <li><b>GET /metrics</b> - Metrics realtime (JSON)</li>
- *   <li><b>GET /findings</b> - Findings realtime (JSON)</li>
- *   <li><b>GET /report</b> - Báo cáo đầy đủ (JSON)</li>
+ *   <li><b>GET /</b> — Dashboard HTML</li>
+ *   <li><b>GET /metrics</b> — Metrics realtime (JSON)</li>
+ *   <li><b>GET /findings</b> — Findings realtime (JSON)</li>
+ *   <li><b>GET /report</b> — Báo cáo đầy đủ (JSON)</li>
+ *   <li><b>GET /slow-queries</b> — Top slow queries kèm execution plan (JSON)</li>
+ *   <li><b>GET /ai-context</b> — AI-ready context prompt (JSON)</li>
+ *   <li><b>GET /project-info</b> — Thông tin project, JVM, DB (JSON)</li>
+ *   <li><b>GET /metrics-trend</b> — Latency trend theo time bucket 30s (JSON)</li>
+ *   <li><b>POST /ai-refresh</b> — Reset AI cache để gọi lại LLM</li>
+ *   <li><b>GET /dashboard.js</b> — Dashboard JavaScript</li>
+ *   <li><b>GET /dashboard.css</b> — Dashboard CSS</li>
  * </ul>
  */
 public class DashboardServer {
@@ -40,6 +46,7 @@ public class DashboardServer {
   private final java.util.function.Supplier<Connection> connectionSupplier;
   private final ProjectInfoCollector projectInfoCollector;
   private HttpServer server;
+  private final MetricsCollector metricsCollector;
 
   /**
    * @param config               cấu hình thư viện — dùng để lấy port và các tham số khác
@@ -60,6 +67,7 @@ public class DashboardServer {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     this.projectInfoCollector = new ProjectInfoCollector(
         System.currentTimeMillis(), config.getDashboardPort());
+    this.metricsCollector = new MetricsCollector();
   }
 
   /**
@@ -79,6 +87,7 @@ public class DashboardServer {
     server.createContext("/ai-refresh", this::handleAIRefresh);
     server.createContext("/slow-queries", this::handleSlowQueries);
     server.createContext("/project-info", this::handleProjectInfo);
+    server.createContext("/metrics-trend", this::handleMetricsTrend);
 
     server.start();
     System.out.println("[DB Quality] Dashboard running at http://localhost:"
@@ -92,7 +101,7 @@ public class DashboardServer {
     if (server != null) server.stop(0);
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────
+  //  Handlers
 
   private void handleDashboard(HttpExchange exchange) throws IOException {
     try {
@@ -187,7 +196,7 @@ public class DashboardServer {
     }
   }
 
-  // ── Helper ────────────────────────────────────────────────────────
+  //  Helper
 
   private QualityReport buildReport() throws SQLException {
     try (Connection conn = connectionSupplier.get()) {
@@ -207,7 +216,7 @@ public class DashboardServer {
     }
   }
 
-  // ── Dashboard HTML ────────────────────────────────────────────────
+  //  Dashboard HTML
 
   private String buildDashboardHTML() throws IOException {
     try (java.io.InputStream is = getClass()
@@ -240,5 +249,13 @@ public class DashboardServer {
       sendResponse(exchange, 500, "application/json",
           "{\"error\":\"" + e.getMessage() + "\"}");
     }
+  }
+
+  private void handleMetricsTrend(HttpExchange exchange) throws IOException {
+    // Sync records vào MetricsCollector
+    metricsCollector.clear();
+    sqlContext.getRecords().forEach(metricsCollector::record);
+    String json = mapper.writeValueAsString(metricsCollector.getBucketMetrics());
+    sendResponse(exchange, 200, "application/json", json);
   }
 }

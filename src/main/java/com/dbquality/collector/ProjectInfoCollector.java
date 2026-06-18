@@ -1,5 +1,6 @@
 package com.dbquality.collector;
 
+import com.dbquality.constant.Constant;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 
@@ -19,7 +20,7 @@ public class ProjectInfoCollector {
   public ProjectInfo collect(Connection connection) {
     ProjectInfo.Builder builder = ProjectInfo.builder();
 
-    // ── Database & Driver ─────────────────────────────────────────────
+    //  Database & Driver
     try {
       DatabaseMetaData meta = connection.getMetaData();
       builder.dbProductName(meta.getDatabaseProductName())
@@ -35,7 +36,7 @@ public class ProjectInfoCollector {
 
     } catch (Exception ignored) {}
 
-    // ── JVM & System ──────────────────────────────────────────────────
+    //  JVM & System
     builder.javaVersion(System.getProperty("java.version", "unknown"))
         .javaVendor(System.getProperty("java.vendor", "unknown"))
         .jvmName(System.getProperty("java.vm.name", "unknown"))
@@ -48,13 +49,13 @@ public class ProjectInfoCollector {
     long maxMb  = rt.maxMemory() / (1024 * 1024);
     builder.heapMemoryUsedMb(usedMb).heapMemoryMaxMb(maxMb);
 
-    // ── Framework detection ───────────────────────────────────────────
+    //  Framework detection
     builder.framework(detectFramework())
         .frameworkVersion(detectFrameworkVersion())
         .ormFramework(detectOrm())
         .connectionPool(detectConnectionPool());
 
-    // ── Library info ──────────────────────────────────────────────────
+    //  Library info
     builder.libraryVersion("1.0-SNAPSHOT")
         .uptimeSeconds((System.currentTimeMillis() - startTimeMs) / 1000)
         .dashboardPort(dashboardPort);
@@ -62,7 +63,7 @@ public class ProjectInfoCollector {
     return builder.build();
   }
 
-  // ── Private helpers ───────────────────────────────────────────────────
+  //  Private helpers
 
   private String detectFramework() {
     if (isOnClasspath("org.springframework.boot.SpringApplication")) {
@@ -144,6 +145,6 @@ public class ProjectInfoCollector {
    */
   private String maskPassword(String url) {
     if (url == null) return null;
-    return url.replaceAll("(?i)(password|pwd)=[^&;]*", "$1=***");
+    return url.replaceAll(Constant.JDBC_PASSWORD_MASK_PATTERN, "$1=***");
   }
 }

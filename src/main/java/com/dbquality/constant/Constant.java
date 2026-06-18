@@ -1,5 +1,7 @@
 package com.dbquality.constant;
 
+import java.util.List;
+
 public class Constant {
 
   // Provider identifiers
@@ -42,7 +44,48 @@ public class Constant {
     public static String MySQL = "MYSQL";
     public static String MariaDB = "MARIADB";
     public static String PostgreSQL = "POSTGRESQL";
-    public static String SQlServer = "SQLSERVER";
+    public static String SQlServer = "MICROSOFT SQL SERVER";
     public static String Oracle = "ORACLE";
   }
+
+  /**
+   * Danh sách package prefix bị loại trừ khi capture calledFrom.
+   * Khi thư viện intercept SQL, nó duyệt stack trace và bỏ qua các frame
+   * thuộc các prefix này để tìm đúng frame code nghiệp vụ của người dùng.
+   *
+   * <p>Bao gồm: JDK internals, test frameworks, Spring, Hibernate,
+   * Jackson, Servlet containers (Tomcat, Catalina), JDBC drivers,
+   * và các class nội bộ của thư viện.</p>
+   */
+  public static final List<String> INTERNAL_PREFIXES = List.of(
+      "java.", "javax.", "sun.", "jdk.", "com.sun.",
+      "org.junit.", "org.opentest4j.",
+      "org.apache.maven.", "org.apache.surefire.",
+      "org.apache.catalina.", "org.apache.tomcat.",
+      "com.intellij.",
+      "org.springframework.",
+      "org.hibernate.",
+      "org.flywaydb.",
+      "com.fasterxml.jackson.",
+      "jakarta.servlet.",
+      "javax.servlet.",
+      "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
+      "com.mysql.", "org.postgresql.", "org.h2.",
+      "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
+      "com.dbquality.core.QualityDataSource.",
+      "com.dbquality.core.QualityConnection.",
+      "com.dbquality.core.QualityPreparedStatement",
+      "com.dbquality.collector.",
+      "com.dbquality.config."
+  );
+
+  // Rule threshold
+
+  // Regex patterns
+  public static final String WHERE_COLUMN_PATTERN = "WHERE\\s+(\\w+)\\s*[=><]";
+  public static final String JDBC_PASSWORD_MASK_PATTERN = "(?i)(password|pwd)=[^&;]*";
+  public static final String SQL_TABLE_NAME_PATTERN = "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)";
+  public static final String FUNCTION_ON_COLUMN_PATTERN = ".*WHERE\\s+\\w+\\s*\\(.*";
+  // Scoring weights
+
 }

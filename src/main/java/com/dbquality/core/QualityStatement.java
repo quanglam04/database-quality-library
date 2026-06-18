@@ -4,6 +4,8 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
+import com.dbquality.constant.Constant;
+import com.dbquality.util.SQLFilter;
 import java.sql.*;
 import java.time.Instant;
 import java.util.Collections;
@@ -24,7 +26,7 @@ public class QualityStatement implements Statement {
     this.config = config;
   }
 
-  // ── Intercept execute methods ─────────────────────────────────────
+  //  Intercept execute methods
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
@@ -143,10 +145,10 @@ public class QualityStatement implements Statement {
     }
   }
 
-  // ── Record SQL execution ──────────────────────────────────────────
+  //  Record SQL execution
 
   private void record(String sql, long executionTime, boolean success, String errorMessage) {
-    if (!isApplicationSQL(sql)) return;
+    if (!SQLFilter.isApplicationSQL(sql)) return;
     sqlContext.add(SQLRecord.builder()
         .sql(sql)
         .parameters(Collections.emptyMap())
@@ -158,43 +160,11 @@ public class QualityStatement implements Statement {
         .build());
   }
 
-  private boolean isApplicationSQL(String sql) {
-    if (sql == null) return false;
-    String upper = sql.trim().toUpperCase();
-    return (upper.startsWith("SELECT")
-        || upper.startsWith("INSERT")
-        || upper.startsWith("UPDATE")
-        || upper.startsWith("DELETE"))
-        && !isSystemSQL(upper);
-  }
-
-  private boolean isSystemSQL(String upper) {
-    // HikariCP / connection pool health check
-    if (upper.equals("SELECT 1")
-        || upper.equals("SELECT 1 FROM DUAL")
-        || upper.contains("/* PING */")
-        || upper.contains("/* ISVALID */")) return true;
-
-    // Hibernate schema validation
-    if (upper.contains("INFORMATION_SCHEMA")) return true;
-    if (upper.contains("PERFORMANCE_SCHEMA")) return true;
-    // Flyway
-    if (upper.contains("FLYWAY_SCHEMA_HISTORY")
-        || upper.contains("FLYWAY_SCHEMA_HIST")
-        || upper.contains("SCHEMA_VERSION")) return true;
-
-    // Liquibase
-    if (upper.contains("DATABASECHANGELOG")
-        || upper.contains("DATABASECHANGELOGLOCK")) return true;
-
-    return false;
-  }
-
   private String captureCalledFrom() {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
-      boolean isInternal = QualityPreparedStatement.INTERNAL_PREFIXES.stream()
+      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
       if (!isInternal) {
         return className + ":" + frame.getLineNumber()
@@ -204,7 +174,7 @@ public class QualityStatement implements Statement {
     return "unknown";
   }
 
-  // ── Delegate các method còn lại về original ───────────────────────
+  //  Delegate các method còn lại về original
 
   @Override public void close() throws SQLException { original.close(); }
   @Override public int getMaxFieldSize() throws SQLException { return original.getMaxFieldSize(); }

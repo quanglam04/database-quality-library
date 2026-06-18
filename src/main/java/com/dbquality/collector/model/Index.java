@@ -26,7 +26,6 @@ public class Index {
     this.unique = unique;
   }
 
-  // Getters
   public String getName() { return name; }
   public List<String> getColumns() { return columns; }
   public boolean isUnique() { return unique; }

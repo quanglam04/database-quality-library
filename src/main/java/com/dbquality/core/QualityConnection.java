@@ -68,7 +68,7 @@ public class QualityConnection implements Connection {
         sql, sqlContext, config);
   }
 
-  // ── Delegate các method còn lại về original ──────────────────────
+  //  Delegate các method còn lại về original
 
   @Override
   public Statement createStatement() throws SQLException {

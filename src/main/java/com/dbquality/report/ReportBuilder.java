@@ -11,18 +11,18 @@ import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
-import com.dbquality.rule.Severity;
+import com.dbquality.constant.Severity;
 
 import com.dbquality.explain.ExplainParser;
 import com.dbquality.explain.ExplainParserFactory;
 import com.dbquality.explain.ExplainResult;
-import java.sql.ResultSet;
-import java.sql.Statement;
 
+import com.dbquality.util.SQLFilter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -120,7 +120,7 @@ public class ReportBuilder {
     }
   }
 
-  // ── Metrics ───────────────────────────────────────────────────────
+  //  Metrics
 
   private MetricsReport buildMetrics(SQLContext sqlContext, List<Finding> findings) {
     List<Long> times = sqlContext.getRecords().stream()
@@ -138,7 +138,7 @@ public class ReportBuilder {
     int slow = (int) sqlContext.getRecords().stream()
         .filter(r -> r.getExecutionTime() >= config.getSlowQueryThresholdMs()).count();
     int nPlusOne = (int) sqlContext.getRecords().stream()
-        .filter(r -> isApplicationSQL(r.getSql()))
+        .filter(r -> SQLFilter.isDMLStatement(r.getSql()))
         .collect(Collectors.groupingBy(SQLRecord::getSql))
         .entrySet().stream()
         .filter(e -> e.getValue().size() > config.getNPlusOneThreshold())
@@ -178,11 +178,10 @@ public class ReportBuilder {
         .build();
   }
 
-  // ── Scoring ───────────────────────────────────────────────────────
+  //  Scoring
 
   /**
    * Tính điểm chất lượng tổng thể từ 0-100.
-   *
    * Mỗi finding trừ điểm theo severity.
    *
    */
@@ -205,7 +204,7 @@ public class ReportBuilder {
     return Math.max(0, 100 - deduction);
   }
 
-  // ── AI context ──────────────────────────────────────────────
+  //  AI context
 
   private String buildAIContext(DDLContext ddl, SQLContext sql,
       List<Finding> findings, MetricsReport metrics) {
@@ -259,8 +258,7 @@ public class ReportBuilder {
     return sb.toString();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────
-
+  //  Helpers
   private long percentile(List<Long> sorted, int percentile) {
     if (sorted.isEmpty()) return 0;
     int index = (int) Math.ceil(percentile / 100.0 * sorted.size()) - 1;
@@ -284,38 +282,19 @@ public class ReportBuilder {
     // Word boundary \b đảm bảo không match partial word
     // Loại bỏ subquery. không lấy nếu sau keyword là dấu (
     java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-        "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-        java.util.regex.Pattern.CASE_INSENSITIVE
+        Constant.SQL_TABLE_NAME_PATTERN,
+        Pattern.CASE_INSENSITIVE
     );
 
     java.util.regex.Matcher matcher = pattern.matcher(sql);
     while (matcher.find()) {
       String tableName = matcher.group(1);
       // Bỏ qua SQL keywords bị nhận nhầm thành table name
-      if (!isSQLKeyword(tableName)) {
+      if (!SQLFilter.isSQLKeyword(tableName)) {
         tables.add(tableName);
       }
     }
     return tables;
-  }
-
-  private boolean isSQLKeyword(String word) {
-    java.util.Set<String> keywords = java.util.Set.of(
-        "SELECT", "WHERE", "AND", "OR", "NOT", "IN", "IS",
-        "NULL", "SET", "VALUES", "ON", "AS", "BY", "ORDER",
-        "GROUP", "HAVING", "LIMIT", "OFFSET", "INNER", "LEFT",
-        "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL"
-    );
-    return keywords.contains(word.toUpperCase());
-  }
-
-  private boolean isApplicationSQL(String sql) {
-    if (sql == null) return false;
-    String upper = sql.trim().toUpperCase();
-    return upper.startsWith("SELECT")
-        || upper.startsWith("INSERT")
-        || upper.startsWith("UPDATE")
-        || upper.startsWith("DELETE");
   }
 
   private List<SlowQueryReport> buildSlowQueryReports(Connection connection,

@@ -5,7 +5,9 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.*;
 
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ public class MissingIndexSuggestionRule implements Rule {
 
   // Pattern tìm cột trong WHERE: WHERE col = hoặc WHERE col >/
   private static final Pattern WHERE_COLUMN_PATTERN =
-      Pattern.compile("WHERE\\s+(\\w+)\\s*[=><]", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(Constant.WHERE_COLUMN_PATTERN, Pattern.CASE_INSENSITIVE);
 
   @Override
   public String getName() {

@@ -16,15 +16,18 @@
       <span class="refresh-indicator" id="refreshDot"></span>
     </span>
   </div>
-  <div id="scoreBadge" class="score-badge">--</div>
+  <div id="scoreBadge" class="score-badge"
+       style="cursor:help"
+       onmouseenter="showChartTip(event,'Công thức tính điểm:\n\nBắt đầu từ 100 điểm, trừ dần:\n  CRITICAL  -20đ/finding  (tối đa -60)\n  HIGH      -10đ/finding  (tối đa -30)\n  MEDIUM     -3đ/finding  (tối đa -15)\n  WARNING    -1đ/finding  (tối đa  -5)')"
+       onmouseleave="hideChartTip()">--</div>
 </header>
 
 <!-- Tab navigation -->
 <div class="tab-nav">
-  <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
-  <button class="tab-btn" onclick="switchTab('findings')">🔍 Findings</button>
-  <button class="tab-btn" onclick="switchTab('ai')">🤖 AI</button>
-  <button class="tab-btn" onclick="switchTab('project')">ℹ️ Project</button>
+  <button class="tab-btn active" onclick="switchTab('overview')"> Overview</button>
+  <button class="tab-btn" onclick="switchTab('findings')"> Findings</button>
+  <button class="tab-btn" onclick="switchTab('ai')"> AI</button>
+  <button class="tab-btn" onclick="switchTab('project')"> Project</button>
 </div>
 
 <div class="container">
@@ -70,10 +73,24 @@
       </div>
     </div>
 
+    <!-- Latency Trend -->
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title"> Latency Trend</span>
+        <span style="font-size:12px; color:#64748b; margin-left:8px">P99 per 30s bucket</span>
+        <span style="font-size:13px; color:#475569; margin-left:8px; cursor:help"
+              onmouseenter="showChartTip(event,'Biểu đồ latency theo thời gian, mỗi điểm = 30 giây.\n\nP50  — 50% queries nhanh hơn mức này\nP95  — 95% queries nhanh hơn mức này\nP99  — chỉ 1% queries chậm hơn\n\nP99 đột ngột tăng cao → có vấn đề hiệu năng.')"
+              onmouseleave="hideChartTip()">❓</span>
+      </div>
+      <div id="latencyTrendChart">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+
     <!-- Top Slow Queries -->
     <div class="card" style="margin-top:16px">
       <div style="display:flex; align-items:center; margin-bottom:16px">
-        <span class="section-title">🐢 Top Slow Queries</span>
+        <span class="section-title"> Top Slow Queries</span>
         <span style="font-size:12px; color:#64748b; margin-left:8px">with execution plan</span>
       </div>
       <div id="slowQueriesList">
@@ -87,6 +104,16 @@
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
         <span class="section-title">Findings</span>
+        <select id="severityFilter" onchange="filterFindings()"
+                style="margin-left:12px; background:#0f172a; color:#94a3b8;
+                 border:1px solid #334155; border-radius:6px;
+                 padding:4px 10px; font-size:12px; cursor:pointer">
+          <option value="ALL">ALL</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="WARNING">WARNING</option>
+        </select>
         <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
       </div>
       <div class="findings-list" id="findingsList">
@@ -100,17 +127,25 @@
     <!-- AI-Ready Context -->
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
-        <span class="section-title">🤖 AI-Ready Context</span>
-        <button onclick="copyAIContext()"
-                style="margin-left:auto; background:#6d28d9; color:white; border:none;
-                       padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
-                       transition: background 0.2s, transform 0.1s;"
-                onmouseover="this.style.background='#5b21b6'"
-                onmouseout="this.style.background='#6d28d9'"
-                onmousedown="this.style.transform='scale(0.97)'"
-                onmouseup="this.style.transform='scale(1)'">
-          📋 Copy
-        </button>
+        <span class="section-title"> AI-Ready Context</span>
+        <div style="display:flex; gap:8px; margin-left:auto">
+          <button onclick="copyAIContext()"
+                  style="background:#6d28d9; color:white; border:none;
+                 padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
+                 transition: background 0.2s"
+                  onmouseover="this.style.background='#5b21b6'"
+                  onmouseout="this.style.background='#6d28d9'">
+             Copy
+          </button>
+          <button onclick="exportAIContext()"
+                  style="background:#0f4c81; color:white; border:none;
+                 padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px;
+                 transition: background 0.2s"
+                  onmouseover="this.style.background='#0d3d6a'"
+                  onmouseout="this.style.background='#0f4c81'">
+             Export
+          </button>
+        </div>
       </div>
       <pre id="aiContextBlock"
            style="background:#0f172a; border:1px solid #334155; border-radius:8px;
@@ -132,7 +167,7 @@
                        transition:background 0.2s, color 0.2s"
                 onmouseover="this.style.background='#334155'; this.style.color='#e2e8f0'"
                 onmouseout="this.style.background='#1e293b'; this.style.color='#94a3b8'">
-          🔄 Refresh AI
+           Refresh AI
         </button>
       </div>
       <div id="aiInsightsContent"></div>
@@ -155,7 +190,7 @@
               padding:24px; max-width:900px; width:90%; max-height:80vh;
               overflow-y:auto; position:relative;">
     <div style="display:flex; align-items:center; margin-bottom:16px">
-      <span style="font-size:16px; font-weight:600; color:#f1f5f9">📋 Execution Plan</span>
+      <span style="font-size:16px; font-weight:600; color:#f1f5f9"> Execution Plan</span>
       <button onclick="closeExplainModal()"
               style="margin-left:auto; background:none; border:none; color:#64748b;
                      font-size:20px; cursor:pointer; padding:0 4px">✕</button>

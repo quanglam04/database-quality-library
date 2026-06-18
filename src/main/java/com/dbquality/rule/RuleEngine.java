@@ -3,9 +3,16 @@ package com.dbquality.rule;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.SQLContext;
 
+import com.dbquality.constant.Severity;
 import com.dbquality.rule.impl.FullTableScanCandidateRule;
 import com.dbquality.rule.impl.MissingIndexSuggestionRule;
+import com.dbquality.rule.impl.MissingPrimaryKeyRule;
+import com.dbquality.rule.impl.NPlusOneRule;
+import com.dbquality.rule.impl.NullableRiskRule;
+import com.dbquality.rule.impl.SelectStarRule;
+import com.dbquality.rule.impl.SlowQueryRule;
 import com.dbquality.rule.impl.SuspiciousDataTypeRule;
+import com.dbquality.rule.impl.UnindexedForeignKeyRule;
 import com.dbquality.rule.impl.UnusedIndexRule;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,12 +81,12 @@ public class RuleEngine {
   public static RuleEngine withDefaultRules(long slowQueryThresholdMs,
       int nPlusOneThreshold) {
     return new RuleEngine()
-        .register(new com.dbquality.rule.impl.MissingPrimaryKeyRule())
-        .register(new com.dbquality.rule.impl.UnindexedForeignKeyRule())
-        .register(new com.dbquality.rule.impl.SelectStarRule())
-        .register(new com.dbquality.rule.impl.SlowQueryRule(slowQueryThresholdMs))
-        .register(new com.dbquality.rule.impl.NPlusOneRule(nPlusOneThreshold))
-        .register(new com.dbquality.rule.impl.NullableRiskRule())
+        .register(new MissingPrimaryKeyRule())
+        .register(new UnindexedForeignKeyRule())
+        .register(new SelectStarRule())
+        .register(new SlowQueryRule(slowQueryThresholdMs))
+        .register(new NPlusOneRule(nPlusOneThreshold))
+        .register(new NullableRiskRule())
         .register(new FullTableScanCandidateRule())
         .register(new UnusedIndexRule())
         .register(new SuspiciousDataTypeRule())

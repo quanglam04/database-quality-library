@@ -4,6 +4,8 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
+import com.dbquality.constant.Constant;
+import com.dbquality.util.SQLFilter;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -35,30 +37,12 @@ public class QualityPreparedStatement implements PreparedStatement {
     this.config = config;
   }
 
-  // ── Capture stack trace ───────────────────────────────────────────
-
-  public static final List<String> INTERNAL_PREFIXES = List.of(
-      "java.", "javax.", "sun.", "jdk.", "com.sun.",
-      "org.junit.", "org.opentest4j.",
-      "org.apache.maven.", "org.apache.surefire.",
-      "com.intellij.",
-      "org.springframework.",
-      "org.hibernate.",
-      "com.zaxxer.", "org.apache.commons.dbcp.", "c3p0.",
-      "com.mysql.", "org.postgresql.", "org.h2.",
-      "com.microsoft.sqlserver.", "org.mariadb.", "org.sqlite.",
-      "com.dbquality.core.QualityDataSource.",
-      "com.dbquality.core.QualityConnection.",
-      "com.dbquality.core.QualityPreparedStatement",
-      "com.dbquality.collector.",
-      "com.dbquality.config."
-  );
 
   private String captureCalledFrom() {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
-      boolean isInternal = INTERNAL_PREFIXES.stream()
+      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
       if (!isInternal) {
         return className + ":" + frame.getLineNumber()
@@ -68,11 +52,11 @@ public class QualityPreparedStatement implements PreparedStatement {
     return "unknown";
   }
 
-  // ── Record SQL execution ──────────────────────────────────────────
+  //  Record SQL execution
 
   private void record(long executionTime, boolean success, String errorMessage) {
     // Bỏ qua DDL và system queries — chỉ capture DML
-    if (!isApplicationSQL(sql)) return;
+    if (!SQLFilter.isApplicationSQL(sql)) return;
 
     sqlContext.add(SQLRecord.builder()
         .sql(sql)
@@ -85,39 +69,8 @@ public class QualityPreparedStatement implements PreparedStatement {
         .build());
   }
 
-  private boolean isApplicationSQL(String sql) {
-    if (sql == null) return false;
-    String upper = sql.trim().toUpperCase();
-    return (upper.startsWith("SELECT")
-        || upper.startsWith("INSERT")
-        || upper.startsWith("UPDATE")
-        || upper.startsWith("DELETE"))
-        && !isSystemSQL(upper);
-  }
 
-  private boolean isSystemSQL(String upper) {
-    // HikariCP / connection pool health check
-    if (upper.equals("SELECT 1")
-        || upper.equals("SELECT 1 FROM DUAL")
-        || upper.contains("/* PING */")
-        || upper.contains("/* ISVALID */")) return true;
-
-    // Hibernate schema validation
-    if (upper.contains("INFORMATION_SCHEMA")) return true;
-    if (upper.contains("PERFORMANCE_SCHEMA")) return true;
-    // Flyway
-    if (upper.contains("FLYWAY_SCHEMA_HISTORY")
-        || upper.contains("FLYWAY_SCHEMA_HIST")
-        || upper.contains("SCHEMA_VERSION")) return true;
-
-    // Liquibase
-    if (upper.contains("DATABASECHANGELOG")
-        || upper.contains("DATABASECHANGELOGLOCK")) return true;
-
-    return false;
-  }
-
-  // ── Intercept execute methods ─────────────────────────────────────
+  //  Intercept execute methods
 
   @Override
   public ResultSet executeQuery() throws SQLException {
@@ -158,7 +111,7 @@ public class QualityPreparedStatement implements PreparedStatement {
     }
   }
 
-  // ── Capture parameters ────────────────────────────────────────────
+  //  Capture parameters
 
   @Override
   public void setNull(int i, int sqlType) throws SQLException {
