@@ -580,4 +580,7 @@ function prevPage() { currentPage--; renderPage(); }
 
 loadData();
 loadAIContext();
-setInterval(loadData, 5000);
+setInterval(() => {
+    loadData();
+    loadAIContext();
+}, 5000);
