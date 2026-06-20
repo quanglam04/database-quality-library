@@ -79,13 +79,102 @@ public class Constant {
       "com.dbquality.config."
   );
 
-  // Rule threshold
-
   // Regex patterns
-  public static final String WHERE_COLUMN_PATTERN = "WHERE\\s+(\\w+)\\s*[=><]";
+  /**
+   * Mask password trong JDBC URL — không phân biệt hoa thường.
+   * Match: {@code password=xxx} hoặc {@code pwd=xxx} đến khi gặp {@code &} hoặc {@code ;}
+   * <br>Ví dụ: {@code jdbc:mysql://host/db?user=admin&password=secret}
+   * → {@code jdbc:mysql://host/db?user=admin&password=***}
+   */
   public static final String JDBC_PASSWORD_MASK_PATTERN = "(?i)(password|pwd)=[^&;]*";
-  public static final String SQL_TABLE_NAME_PATTERN = "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)";
-  public static final String FUNCTION_ON_COLUMN_PATTERN = ".*WHERE\\s+\\w+\\s*\\(.*";
-  // Scoring weights
 
+  /**
+   * Extract tên bảng sau từ khoá FROM/JOIN/INTO/UPDATE.
+   * Group 1: tên bảng (bắt đầu bằng chữ cái hoặc underscore).
+   * <br>Ví dụ: {@code SELECT * FROM users WHERE...} → group 1 = {@code users}
+   */
+  public static final String SQL_TABLE_NAME_PATTERN = "(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][a-zA-Z0-9_]*)";
+
+  /**
+   * Phát hiện function được áp dụng lên cột trong WHERE — gây bypass index.
+   * Match các function phổ biến: LOWER, UPPER, TRIM, YEAR, MONTH, DATE, CAST, COALESCE...
+   * <br>Ví dụ match: {@code WHERE LOWER(name) = 'abc'}, {@code WHERE YEAR(created_at) = 2026}
+   */
+  public static final String FUNCTION_ON_COLUMN_PATTERN = ".*WHERE\\s+.*\\b(LOWER|UPPER|TRIM|LTRIM|RTRIM|SUBSTRING|SUBSTR|YEAR|MONTH|DAY|DATE|DATEPART|EXTRACT|CAST|CONVERT|COALESCE|IFNULL|NVL|ABS|ROUND|FLOOR|CEILING|CONCAT)\\s*\\(.*";
+
+  /**
+   * Extract phần filter sau WHERE/ON/ORDER BY/GROUP BY — nơi index thực sự được dùng.
+   * Group 1: nội dung của clause (dừng trước clause tiếp theo).
+   * <br>Ví dụ: {@code WHERE status = 'A' ORDER BY id} → group 1 sau WHERE = {@code status = 'A'}
+   */
+  public static final String FILTER_CLAUSE_PATTERN = "(?:WHERE|ON|ORDER\\s+BY|GROUP\\s+BY)\\s+(.+?)(?=\\s+(?:WHERE|ORDER\\s+BY|GROUP\\s+BY|LIMIT|UNION|$))";
+
+  /**
+   * Phát hiện LIKE với leading wildcard — gây full table scan.
+   * Match 3 dạng:
+   * <ul>
+   *   <li>{@code LIKE '%abc'} hoặc {@code LIKE ?} (PreparedStatement)</li>
+   *   <li>{@code LIKE LOWER(...)} hoặc {@code LIKE UPPER(...)}</li>
+   *   <li>{@code LIKE CONCAT('%', ...)}</li>
+   * </ul>
+   */
+  public static final String LIKE_LEADING_WILDCARD = ".*LIKE\\s+('%|\\?)|.*LIKE\\s+(LOWER|UPPER)\\s*\\(.*|.*LIKE\\s+CONCAT\\s*\\(\\s*['\"]?%.*";
+
+  /**
+   * Phát hiện NOT IN với subquery — thường bypass index và xử lý NULL không nhất quán.
+   * <br>Ví dụ: {@code WHERE id NOT IN (SELECT user_id FROM ...)}
+   */
+  public static final String NOT_IN_SUBQUERY = ".*NOT\\s+IN\\s*\\(\\s*SELECT.*";
+
+  /**
+   * Phát hiện operator không bằng ({@code <>} hoặc {@code !=}) trong WHERE — không dùng được index.
+   * <br>Ví dụ: {@code WHERE status <> 'DELETED'}
+   */
+  public static final String NOT_EQUAL_OPERATOR = ".*WHERE\\s+.*(<>|!=).*";
+
+  /**
+   * Phát hiện filter {@code IS NULL} hoặc {@code IS NOT NULL} trong WHERE.
+   * Thường bypass index trừ khi có partial index (PostgreSQL) hoặc filtered index (SQL Server).
+   */
+  public static final String IS_NULL_FILTER = ".*WHERE\\s+.*IS\\s+(NOT\\s+)?NULL.*";
+
+  /**
+   * Match từ {@code OR} đứng độc lập (word boundary).
+   * Dùng để đếm số lượng OR trong WHERE clause.
+   */
+  public static final String OR_PATTERN = "\\bOR\\b";
+
+  /**
+   * Match cột đơn (không có table prefix) trong WHERE/AND/OR/ON.
+   * Group 1: tên cột.
+   * <br>Ví dụ: {@code WHERE status = 'A'} → group 1 = {@code status}
+   */
+  public static final String SIMPLE_COLUMN_PATTERN = "(?:WHERE|AND|OR|ON)\\s+(\\w+)\\s*(?:=|<>|!=|<|>|<=|>=|LIKE|IN|BETWEEN|IS)";
+
+  /**
+   * Match cột có table prefix (JPA/Hibernate thường generate dạng này).
+   * Group 1: alias/table, group 2: tên cột.
+   * <br>Ví dụ: {@code WHERE e1_0.email = ?} → group 1 = {@code e1_0}, group 2 = {@code email}
+   */
+  public static final String QUALIFIED_COLUMN_PATTERN = "(?:WHERE|AND|OR|ON)\\s+(\\w+)\\.(\\w+)\\s*(?:=|<>|!=|<|>|<=|>=|LIKE|IN|BETWEEN|IS)";
+
+  /**
+   * Extract mapping alias → table từ FROM/JOIN clause (có dùng AS hoặc không).
+   * Group 1: tên bảng, group 2: alias.
+   * <br>Ví dụ: {@code FROM employees e1_0} → group 1 = {@code employees}, group 2 = {@code e1_0}
+   */
+  public static final String TABLE_ALIAS_PATTERN = "(?:FROM|JOIN)\\s+(\\w+)\\s+(?:AS\\s+)?(\\w+)";
+
+  /**
+   * Extract tên bảng khi không có alias (theo sau là clause khác hoặc cuối câu).
+   * Group 1: tên bảng.
+   * <br>Ví dụ: {@code FROM employees WHERE...} → group 1 = {@code employees}
+   */
+  public static final String TABLE_NO_ALIAS_PATTERN = "(?:FROM|JOIN)\\s+(\\w+)(?:\\s+(?:WHERE|ON|INNER|LEFT|RIGHT|GROUP|ORDER|$))";
+
+  /**
+   * Phát hiện {@code SELECT * FROM} — không phân biệt hoa thường.
+   * <br>Ví dụ: {@code SELECT * FROM users}
+   */
+  public static final String SELECT_STAR_PATTERN = "(?i)SELECT\\s+\\*\\s+FROM";
 }

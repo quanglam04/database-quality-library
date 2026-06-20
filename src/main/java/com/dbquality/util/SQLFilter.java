@@ -122,11 +122,17 @@ public class SQLFilter {
    * Dùng để phân tích cấu trúc SQL trong report.
    */
   public static boolean isSQLKeyword(String word) {
-    Set<String> keywords = java.util.Set.of(
-        "SELECT", "WHERE", "AND", "OR", "NOT", "IN", "IS",
-        "NULL", "SET", "VALUES", "ON", "AS", "BY", "ORDER",
-        "GROUP", "HAVING", "LIMIT", "OFFSET", "INNER", "LEFT",
-        "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL"
+    Set<String> keywords = Set.of(
+        // DML
+        "SELECT", "INSERT", "UPDATE", "DELETE", "VALUES", "SET",
+        // Clauses
+        "FROM", "WHERE", "GROUP", "ORDER", "HAVING", "LIMIT", "OFFSET",
+        // Conditions
+        "AND", "OR", "NOT", "IS", "NULL", "IN", "BETWEEN", "LIKE", "EXISTS",
+        // Joins
+        "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "CROSS", "NATURAL", "FULL", "ON",
+        // Other
+        "AS", "BY", "DISTINCT", "UNION", "ALL"
     );
     return keywords.contains(word.toUpperCase());
   }

@@ -6,33 +6,33 @@ package com.dbquality.constant;
  *
  * <p>Thứ tự ưu tiên: {@code CRITICAL > HIGH > MEDIUM > WARNING}.</p>
  */
+
+
 public enum Severity {
 
-  /**
-   * Vấn đề nghiêm trọng — ảnh hưởng tính toàn vẹn dữ liệu hoặc gây lỗi hệ thống.
-   * Ví dụ: bảng không có Primary Key. Cần xử lý ngay trước khi lên production.
-   * Trừ tối đa 60 điểm trong scoring.
-   */
-  CRITICAL,
+  /** Ảnh hưởng tính toàn vẹn dữ liệu hoặc gây lỗi hệ thống. Ví dụ: thiếu Primary Key. */
+  CRITICAL(20, 60),
 
-  /**
-   * Vấn đề ảnh hưởng đáng kể đến hiệu năng.
-   * Ví dụ: Foreign Key không có index, N+1 query, slow query vượt ngưỡng.
-   * Trừ tối đa 30 điểm trong scoring.
-   */
-  HIGH,
+  /** Ảnh hưởng đáng kể đến hiệu năng. Ví dụ: FK không index, N+1 query, slow query. */
+  HIGH(10, 30),
 
-  /**
-   * Vấn đề nên cải thiện để tối ưu hoá.
-   * Ví dụ: dùng {@code SELECT *}, thiếu index suggestion.
-   * Trừ tối đa 15 điểm trong scoring.
-   */
-  MEDIUM,
+  /** Nên cải thiện để tối ưu. Ví dụ: SELECT *, thiếu index suggestion. */
+  MEDIUM(3, 15),
 
-  /**
-   * Vấn đề cần theo dõi, không khẩn cấp.
-   * Ví dụ: cột nullable trong WHERE, index không được dùng trong session, kiểu dữ liệu đáng ngờ.
-   * Trừ tối đa 5 điểm trong scoring.
-   */
-  WARNING
+  /** Cần theo dõi, không khẩn cấp. Ví dụ: nullable trong WHERE, kiểu dữ liệu đáng ngờ. */
+  WARNING(1, 5);
+
+  private final int weight;
+  private final int maxDeduction;
+
+  Severity(int weight, int maxDeduction) {
+    this.weight = weight;
+    this.maxDeduction = maxDeduction;
+  }
+
+  /** @return số điểm trừ cho mỗi finding ở severity này */
+  public int getWeight() { return weight; }
+
+  /** @return tổng điểm trừ tối đa cho severity này */
+  public int getMaxDeduction() { return maxDeduction; }
 }

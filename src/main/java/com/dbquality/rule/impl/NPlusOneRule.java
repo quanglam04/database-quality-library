@@ -42,14 +42,20 @@ public class NPlusOneRule implements Rule {
 
     for (Map.Entry<String, List<SQLRecord>> entry : grouped.entrySet()) {
       if (entry.getValue().size() > threshold) {
-        SQLRecord sample = entry.getValue().get(0);
+        String calledFrom = entry.getValue().stream()
+            .collect(Collectors.groupingBy(SQLRecord::getCalledFrom, Collectors.counting()))
+            .entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse("unknown");
+
         findings.add(Finding.builder()
             .rule(getName())
             .severity(getSeverity())
             .message("Query pattern lặp lại " + entry.getValue().size()
                 + " lần — dấu hiệu N+1: " + entry.getKey())
             .recommendation("Dùng JOIN hoặc batch fetch thay vì query trong vòng lặp")
-            .calledFrom(sample.getCalledFrom())
+            .calledFrom(calledFrom)
             .build());
       }
     }

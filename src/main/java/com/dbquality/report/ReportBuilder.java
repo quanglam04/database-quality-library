@@ -179,7 +179,6 @@ public class ReportBuilder {
   }
 
   //  Scoring
-
   /**
    * Tính điểm chất lượng tổng thể từ 0-100.
    * Mỗi finding trừ điểm theo severity.
@@ -188,24 +187,17 @@ public class ReportBuilder {
   private int calculateScore(List<Finding> findings) {
     if (findings.isEmpty()) return 100;
 
-    // Đếm số findings theo từng severity
-    long critical = findings.stream().filter(f -> f.getSeverity() == Severity.CRITICAL).count();
-    long high     = findings.stream().filter(f -> f.getSeverity() == Severity.HIGH).count();
-    long medium   = findings.stream().filter(f -> f.getSeverity() == Severity.MEDIUM).count();
-    long warning  = findings.stream().filter(f -> f.getSeverity() == Severity.WARNING).count();
-
-    // Trừ điểm theo severity nhưng có giới hạn tối đa mỗi loại
     int deduction = 0;
-    deduction += Math.min(critical * 20, 60); // tối đa -60 cho CRITICAL
-    deduction += Math.min(high     * 10, 30); // tối đa -30 cho HIGH
-    deduction += Math.min(medium   *  3, 15); // tối đa -15 cho MEDIUM
-    deduction += Math.min(warning  *  1,  5); // tối đa -5  cho WARNING
-
+    for (Severity severity : Severity.values()) {
+      long count = findings.stream()
+          .filter(f -> f.getSeverity() == severity)
+          .count();
+      deduction += Math.min(count * severity.getWeight(), severity.getMaxDeduction());
+    }
     return Math.max(0, 100 - deduction);
   }
 
   //  AI context
-
   private String buildAIContext(DDLContext ddl, SQLContext sql,
       List<Finding> findings, MetricsReport metrics) {
     StringBuilder sb = new StringBuilder();
