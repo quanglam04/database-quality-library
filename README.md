@@ -5,7 +5,7 @@
 [![](https://jitpack.io/v/quanglam04/database-quality-library.svg)](https://jitpack.io/#quanglam04/database-quality-library)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> Thư viện Java phân tích chất lượng tương tác giữa ứng dụng và database tại runtime — không cần sửa bất kỳ dòng code nghiệp vụ nào.
+> Thư viện Java phân tích chất lượng tương tác giữa ứng dụng và database tại runtime 
 
 ---
 
@@ -86,7 +86,7 @@ Thêm JitPack repository và dependency vào `pom.xml`:
     <dependency>
         <groupId>com.github.quanglam04</groupId>
         <artifactId>database-quality-library</artifactId>
-        <version>dev-SNAPSHOT</version> <!-- Luôn dùng bản mới nhất của branch dev -->
+        <version>master-SNAPSHOT</version> <!-- Luôn dùng bản mới nhất của branch master -->
     </dependency>
 </dependencies>
 ```
