@@ -79,6 +79,14 @@ public class Constant {
       "com.dbquality.config."
   );
 
+  public static final List<String> INTERNAL_CONTAINS_PATTERNS = List.of(
+      "$HibernateProxy$",     // Hibernate lazy loading proxy
+      "$$EnhancerBy",         // CGLIB / Spring AOP proxy
+      "$$_javassist_",        // Javassist proxy
+      "$Proxy",               // JDK dynamic proxy
+      "$$Lambda$"             // Lambda generated classes
+  );
+
   // Regex patterns
   /**
    * Mask password trong JDBC URL — không phân biệt hoa thường.

@@ -164,12 +164,19 @@ public class QualityStatement implements Statement {
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
+
+      // Skip internal prefixes (startsWith)
       boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
-      if (!isInternal) {
-        return className + ":" + frame.getLineNumber()
-            + " -> " + frame.getMethodName() + "()";
-      }
+      if (isInternal) continue;
+
+      // Skip runtime-generated proxy classes (contains)
+      boolean isProxy = Constant.INTERNAL_CONTAINS_PATTERNS.stream()
+          .anyMatch(className::contains);
+      if (isProxy) continue;
+
+      return className + ":" + frame.getLineNumber()
+          + " -> " + frame.getMethodName() + "()";
     }
     return "unknown";
   }
