@@ -1,5 +1,6 @@
 package com.dbquality.core;
 
+import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
@@ -26,14 +27,17 @@ public class QualityPreparedStatement implements PreparedStatement {
   private final PreparedStatement original;
   private final String sql;
   private final SQLContext sqlContext;
+  private final QueryMetricsStore metricsStore;
   private final QualityConfig config;
   private final Map<Integer, Object> parameters = new HashMap<>();
 
   public QualityPreparedStatement(PreparedStatement original, String sql,
-      SQLContext sqlContext, QualityConfig config) {
+      SQLContext sqlContext, QueryMetricsStore metricsStore,
+      QualityConfig config) {
     this.original = original;
     this.sql = sql;
     this.sqlContext = sqlContext;
+    this.metricsStore = metricsStore;
     this.config = config;
   }
 
@@ -43,12 +47,10 @@ public class QualityPreparedStatement implements PreparedStatement {
     for (StackTraceElement frame : stack) {
       String className = frame.getClassName();
 
-      // Skip internal prefixes (startsWith)
       boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
           .anyMatch(className::startsWith);
       if (isInternal) continue;
 
-      // Skip runtime-generated proxy classes (contains)
       boolean isProxy = Constant.INTERNAL_CONTAINS_PATTERNS.stream()
           .anyMatch(className::contains);
       if (isProxy) continue;
@@ -59,25 +61,31 @@ public class QualityPreparedStatement implements PreparedStatement {
     return "unknown";
   }
 
-  //  Record SQL execution
-
+  /**
+   * Ghi nhận một lần thực thi SQL vào cả 2 store.
+   * Hot path — phải nhanh, không block.
+   */
   private void record(long executionTime, boolean success, String errorMessage) {
-    // Bỏ qua DDL và system queries — chỉ capture DML
     if (!SQLFilter.isApplicationSQL(sql)) return;
 
+    String calledFrom = captureCalledFrom();
+
+    // 1. Lưu vào SQLContext (legacy — backward compat)
     sqlContext.add(SQLRecord.builder()
         .sql(sql)
         .parameters(new HashMap<>(parameters))
         .executionTime(executionTime)
         .timestamp(Instant.now())
-        .calledFrom(captureCalledFrom())
+        .calledFrom(calledFrom)
         .success(success)
         .errorMessage(errorMessage)
         .build());
+
+    // 2. Update metrics store
+    if (metricsStore != null && success) {
+      metricsStore.record(sql, executionTime, calledFrom);
+    }
   }
-
-
-  //  Intercept execute methods
 
   @Override
   public ResultSet executeQuery() throws SQLException {

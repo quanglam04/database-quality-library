@@ -22,14 +22,14 @@ public class QualityConfig {
   private int dashboardPort;
   private boolean exportJsonEnabled;
   private String exportJsonPath;
-
+  private long analysisIntervalMs;
+  private long analysisInitialDelayMs;
+  private boolean analysisScheduled;
 
   private QualityConfig() {}
 
   /**
    * Tạo config với toàn bộ giá trị mặc định.
-   *
-   * @return config mặc định
    */
   public static QualityConfig getDefault() {
     QualityConfig config = new QualityConfig();
@@ -45,14 +45,15 @@ public class QualityConfig {
     config.dashboardPort = 9876;
     config.exportJsonEnabled = false;
     config.exportJsonPath = "quality-report.json";
+    config.analysisIntervalMs = 24 * 60 * 60 * 1000L;  // 24h
+    config.analysisInitialDelayMs = 10 * 1000L;         // 10s
+    config.analysisScheduled = true;
     return config;
   }
 
   /**
    * Đọc config từ file application.properties trên classpath.
    * Các property không có trong file sẽ dùng giá trị mặc định.
-   *
-   * @return config được load từ file
    */
   public static QualityConfig fromClasspath() {
     QualityConfig config = getDefault();
@@ -83,19 +84,66 @@ public class QualityConfig {
           props.getProperty("quality.export.json.enabled", "false"));
       config.exportJsonPath = props.getProperty(
           "quality.export.json.path", "quality-report.json");
+
+      // Analysis config — support 2 format:
+      // 1. quality.analysis.interval=24h (friendly)
+      // 2. quality.analysis.interval-ms=86400000 (raw)
+      String intervalStr = props.getProperty("quality.analysis.interval");
+      if (intervalStr != null) {
+        config.analysisIntervalMs = parseDuration(intervalStr);
+      } else {
+        config.analysisIntervalMs = Long.parseLong(
+            props.getProperty("quality.analysis.interval-ms", "86400000"));
+      }
+      config.analysisInitialDelayMs = Long.parseLong(
+          props.getProperty("quality.analysis.initial-delay-ms", "10000"));
+      config.analysisScheduled = Boolean.parseBoolean(
+          props.getProperty("quality.analysis.scheduled", "true"));
+
     } catch (IOException e) {
-      // trong trường hợp không load được file thì làm gì
+      // Không load được file thì dùng default
     }
     return config;
   }
 
   /**
-   * Config dùng cho unit test — tắt dashboard để tránh port conflict.
+   * Parse duration string thành milliseconds.
+   * Hỗ trợ các format: "30s", "5m", "1h", "24h", "1d".
+   * Nếu không có suffix thì hiểu là milliseconds.
+   *
+   * @param duration ví dụ "24h", "30m", "60s", "86400000"
+   * @return milliseconds
+   */
+  private static long parseDuration(String duration) {
+    if (duration == null || duration.isBlank()) return 0;
+    duration = duration.trim().toLowerCase();
+
+    long multiplier = 1;
+    char lastChar = duration.charAt(duration.length() - 1);
+    if (!Character.isDigit(lastChar)) {
+      switch (lastChar) {
+        case 's': multiplier = 1000L; break;
+        case 'm': multiplier = 60 * 1000L; break;
+        case 'h': multiplier = 60 * 60 * 1000L; break;
+        case 'd': multiplier = 24 * 60 * 60 * 1000L; break;
+        default:
+          throw new IllegalArgumentException("Invalid duration suffix: " + lastChar);
+      }
+      duration = duration.substring(0, duration.length() - 1);
+    }
+
+    return Long.parseLong(duration.trim()) * multiplier;
+  }
+
+  /**
+   * Config dùng cho unit test — tắt dashboard và scheduled analysis
+   * để tránh port conflict và thread leak.
    */
   public static QualityConfig getTestDefault() {
     QualityConfig config = getDefault();
     config.dashboardEnabled = false;
     config.exportJsonEnabled = false;
+    config.analysisScheduled = false;
     return config;
   }
 
@@ -111,4 +159,7 @@ public class QualityConfig {
   public int getDashboardPort() { return dashboardPort; }
   public boolean isExportJsonEnabled() { return exportJsonEnabled; }
   public String getExportJsonPath() { return exportJsonPath; }
+  public long getAnalysisIntervalMs() { return analysisIntervalMs; }
+  public long getAnalysisInitialDelayMs() { return analysisInitialDelayMs; }
+  public boolean isAnalysisScheduled() { return analysisScheduled; }
 }
