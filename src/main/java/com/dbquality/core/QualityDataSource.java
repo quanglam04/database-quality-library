@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.logging.Logger;
 
+
 /**
  * Entry point của thư viện.
  * Wrap DataSource gốc để intercept toàn bộ JDBC calls.
@@ -78,9 +79,13 @@ public class QualityDataSource implements DataSource {
 
     // Dashboard
     if (config.isDashboardEnabled()) {
+      ReportBuilder reportBuilder = new ReportBuilder(config, explainCache);
       this.dashboardServer = new DashboardServer(
           config,
-          sqlContext,
+          metricsStore,
+          resultStore,
+          analysisJob,
+          reportBuilder,
           () -> {
             try { return original.getConnection(); }
             catch (Exception e) { throw new RuntimeException(e); }
@@ -139,9 +144,9 @@ public class QualityDataSource implements DataSource {
   }
 
   public void exportJSON(String filePath) throws Exception {
-    try (java.sql.Connection conn = original.getConnection()) {
-      ReportBuilder builder = new ReportBuilder(config);
-      QualityReport report = builder.build(conn, sqlContext);
+    try (Connection conn = original.getConnection()) {
+      ReportBuilder builder = new ReportBuilder(config, explainCache);
+      QualityReport report = builder.build(conn, metricsStore);
       new JSONExporter().toFile(report, filePath);
       System.out.println("[DB Quality] Report exported to " + filePath);
     }

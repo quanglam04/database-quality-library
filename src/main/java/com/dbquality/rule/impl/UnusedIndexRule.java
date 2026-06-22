@@ -4,6 +4,7 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.model.Index;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
 import com.dbquality.explain.ExplainCache;
@@ -35,9 +36,6 @@ import java.util.regex.Pattern;
  * text), rule này dùng kết quả EXPLAIN thật — chính xác 100%, không có false
  * positive do match cột nhầm.</p>
  *
- * <p><b>Lưu ý:</b> Vẫn dựa trên session hiện tại — index có thể được dùng cho
- * báo cáo cuối tháng mà session này không cover. Recommendation luôn nhắc
- * user verify trước khi xóa.</p>
  */
 public class UnusedIndexRule implements MetricsBasedRule {
 
@@ -45,7 +43,7 @@ public class UnusedIndexRule implements MetricsBasedRule {
   // MySQL: "key": "idx_name"
   // PostgreSQL: "Index Name": "idx_name"
   private static final Pattern INDEX_NAME_PATTERN = Pattern.compile(
-      "\"(?:key|Index Name|index_name)\"\\s*:\\s*\"([^\"]+)\"",
+      Constant.INDEX_NAME_PATTERN,
       Pattern.CASE_INSENSITIVE
   );
 

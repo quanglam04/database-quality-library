@@ -1,23 +1,27 @@
 package com.dbquality.rule.impl;
 
 import com.dbquality.collector.DDLContext;
-import com.dbquality.collector.SQLContext;
-import com.dbquality.collector.SQLRecord;
+import com.dbquality.collector.QueryMetric;
+import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
-import com.dbquality.rule.*;
+import com.dbquality.rule.Finding;
+import com.dbquality.rule.MetricsBasedRule;
+import com.dbquality.rule.RuleResult;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
- * Phát hiện các câu SQL dùng SELECT * — lấy thừa dữ liệu không cần thiết.
+ * Phát hiện câu SQL dùng SELECT *.
+ *
+ * <p>Dùng QueryMetricsStore (đã group sẵn theo unique SQL pattern) nên
+ * không cần group lại trong rule. Mỗi pattern chỉ tạo 1 finding,
+ * kèm số lần xuất hiện và average duration.</p>
  */
-public class SelectStarRule implements Rule {
+public class SelectStarRule implements MetricsBasedRule {
 
   private static final Pattern SELECT_STAR_PATTERN =
       Pattern.compile(Constant.SELECT_STAR_PATTERN);
@@ -33,30 +37,22 @@ public class SelectStarRule implements Rule {
   }
 
   @Override
-  public RuleResult analyze(DDLContext ddl, SQLContext sql) {
+  public RuleResult analyze(DDLContext ddl, QueryMetricsStore metricsStore) {
     List<Finding> findings = new ArrayList<>();
 
-    sql.getRecords().stream()
-        .filter(r -> isSelectStar(r.getSql()))
-        .collect(Collectors.groupingBy(SQLRecord::getSql))
-        .forEach((pattern, records) -> {
-          // Lấy calledFrom phổ biến nhất trong group
-          String calledFrom = records.stream()
-              .collect(Collectors.groupingBy(SQLRecord::getCalledFrom, Collectors.counting()))
-              .entrySet().stream()
-              .max(Map.Entry.comparingByValue())
-              .map(Map.Entry::getKey)
-              .orElse("unknown");
+    for (QueryMetric metric : metricsStore.getAllMetrics()) {
+      if (!isSelectStar(metric.getSqlPattern())) continue;
 
-          findings.add(Finding.builder()
-              .rule(getName())
-              .severity(getSeverity())
-              .message("Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết"
-                  + (records.size() > 1 ? " (xuất hiện " + records.size() + " lần)" : ""))
-              .recommendation("Thay SELECT * bằng danh sách cột cụ thể")
-              .calledFrom(calledFrom)
-              .build());
-        });
+      findings.add(Finding.builder()
+          .rule(getName())
+          .severity(getSeverity())
+          .message("Câu SQL dùng SELECT * — nên chỉ lấy các cột cần thiết "
+              + "(xuất hiện " + metric.getCallCount() + " lần, "
+              + "avg " + String.format("%.1f", metric.getAvgDurationMs()) + "ms)")
+          .recommendation("Thay SELECT * bằng danh sách cột cụ thể")
+          .calledFrom(metric.getMostFrequentCalledFrom())
+          .build());
+    }
 
     return new RuleResult(findings);
   }
