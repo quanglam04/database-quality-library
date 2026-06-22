@@ -5,6 +5,7 @@ import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.config.QualityAutoConfiguration;
 import com.dbquality.config.QualityConfig;
+import com.dbquality.explain.ExplainCache;
 import com.dbquality.report.AnalysisResultStore;
 import com.dbquality.report.DashboardServer;
 import com.dbquality.report.JSONExporter;
@@ -43,6 +44,7 @@ public class QualityDataSource implements DataSource {
   private final AnalysisResultStore resultStore;
   private final ScheduledAnalysisJob analysisJob;
   private DashboardServer dashboardServer;
+  private final ExplainCache explainCache;
 
   public QualityDataSource(DataSource original) {
     this(original, QualityConfig.getDefault());
@@ -54,16 +56,19 @@ public class QualityDataSource implements DataSource {
     this.sqlContext = new SQLContext();
     this.metricsStore = new QueryMetricsStore();
     this.resultStore = new AnalysisResultStore();
+    this.explainCache = new ExplainCache(original);
 
     RuleEngine ruleEngine = RuleEngine.withDefaultRules(
         config.getSlowQueryThresholdMs(),
-        config.getNPlusOneThreshold()
+        config.getNPlusOneThreshold(),
+        explainCache
     );
     this.analysisJob = new ScheduledAnalysisJob(
         this, // dùng chính QualityDataSource để job lấy connection có instrumentation
         metricsStore,
         resultStore,
         ruleEngine,
+        explainCache,
         config.getAnalysisIntervalMs(),
         config.getAnalysisInitialDelayMs()
     );
@@ -127,6 +132,10 @@ public class QualityDataSource implements DataSource {
 
   public ScheduledAnalysisJob getAnalysisJob() {
     return analysisJob;
+  }
+
+  public ExplainCache getExplainCache() {
+    return explainCache;
   }
 
   public void exportJSON(String filePath) throws Exception {

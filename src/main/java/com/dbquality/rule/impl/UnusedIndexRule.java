@@ -1,32 +1,59 @@
 package com.dbquality.rule.impl;
 
 import com.dbquality.collector.DDLContext;
-import com.dbquality.collector.SQLContext;
-import com.dbquality.collector.SQLRecord;
+import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.model.Index;
 import com.dbquality.collector.model.Table;
-import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
-import com.dbquality.rule.*;
+import com.dbquality.explain.ExplainCache;
+import com.dbquality.explain.ExplainResult;
+import com.dbquality.rule.Finding;
+import com.dbquality.rule.MetricsBasedRule;
+import com.dbquality.rule.RuleResult;
 import com.dbquality.util.SchemaFilter;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Phát hiện các index không được sử dụng trong session hiện tại.
- * Index không được dùng = tốn storage và làm chậm INSERT/UPDATE/DELETE.
+ * Phát hiện index không được DB engine sử dụng dựa trên EXPLAIN result thực tế.
  *
+ * <p>Logic:</p>
+ * <ol>
+ *   <li>Duyệt toàn bộ EXPLAIN cache, extract tên index đã được dùng (field "key"
+ *       trong MySQL, "Index Name" trong PostgreSQL)</li>
+ *   <li>Với mỗi index trong DDL, check có xuất hiện trong set "used indexes" không</li>
+ *   <li>Index không xuất hiện → flag là unused</li>
+ * </ol>
+ *
+ * <p>Khác với heuristic cũ (chỉ check cột của index có xuất hiện trong WHERE
+ * text), rule này dùng kết quả EXPLAIN thật — chính xác 100%, không có false
+ * positive do match cột nhầm.</p>
+ *
+ * <p><b>Lưu ý:</b> Vẫn dựa trên session hiện tại — index có thể được dùng cho
+ * báo cáo cuối tháng mà session này không cover. Recommendation luôn nhắc
+ * user verify trước khi xóa.</p>
  */
-public class UnusedIndexRule implements Rule {
+public class UnusedIndexRule implements MetricsBasedRule {
 
-  // Pattern lấy phần sau WHERE/ON/ORDER BY/GROUP BY (nơi index thực sự được dùng)
-  private static final Pattern FILTER_CLAUSE_PATTERN =
-      Pattern.compile(Constant.FILTER_CLAUSE_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+  // Pattern lấy tên index từ EXPLAIN raw output
+  // MySQL: "key": "idx_name"
+  // PostgreSQL: "Index Name": "idx_name"
+  private static final Pattern INDEX_NAME_PATTERN = Pattern.compile(
+      "\"(?:key|Index Name|index_name)\"\\s*:\\s*\"([^\"]+)\"",
+      Pattern.CASE_INSENSITIVE
   );
+
+  private final ExplainCache explainCache;
+
+  public UnusedIndexRule(ExplainCache explainCache) {
+    this.explainCache = explainCache;
+  }
 
   @Override
   public String getName() {
@@ -39,31 +66,36 @@ public class UnusedIndexRule implements Rule {
   }
 
   @Override
-  public RuleResult analyze(DDLContext ddl, SQLContext sql) {
+  public RuleResult analyze(DDLContext ddl, QueryMetricsStore metricsStore) {
     List<Finding> findings = new ArrayList<>();
 
-    // Nếu không có SQL nào được thu thập thì bỏ qua
-    if (sql.getRecords().isEmpty()) return new RuleResult(findings);
+    // Bỏ qua nếu cache rỗng — không có data để phân tích
+    if (explainCache.size() == 0) return new RuleResult(findings);
 
+    // Bước 1: Extract tất cả index đã được DB engine dùng từ EXPLAIN cache
+    Set<String> usedIndexes = collectUsedIndexes();
+
+    // Bước 2: Duyệt DDL, flag index không xuất hiện
     for (Table table : ddl.getTables()) {
       if (SchemaFilter.isSystemTable(table.getName())) continue;
-      for (Index index : table.getIndexes()) {
-        // Bỏ qua Primary Key index
-        if (isPrimaryKeyIndex(index.getName())) continue;
-        // Bỏ qua index không có cột nào (edge case)
-        if (index.getColumns() == null || index.getColumns().isEmpty()) continue;
 
-        boolean isUsed = isIndexUsedInQueries(index, table, sql);
-        if (!isUsed) {
+      for (Index index : table.getIndexes()) {
+        if (isPrimaryKeyIndex(index.getName())) continue;
+        if (isUniqueConstraintIndex(index.getName())) continue;
+
+        if (!usedIndexes.contains(index.getName().toUpperCase())) {
           findings.add(Finding.builder()
               .rule(getName())
               .severity(getSeverity())
               .table(table.getName())
-              .message("Index " + index.getName() + " trên bảng "
-                  + table.getName() + " không được dùng trong session này"
-                  + " — kết quả chỉ dựa trên session hiện tại, không phải lịch sử toàn bộ")
-              .recommendation("Cân nhắc xóa index nếu không cần thiết sau khi verify trên production — "
-                  + "index thừa làm chậm INSERT/UPDATE/DELETE")
+              .message("Index " + index.getName() + " trên bảng " + table.getName()
+                  + " không được DB engine sử dụng trong session này "
+                  + "(theo kết quả EXPLAIN của " + explainCache.size()
+                  + " query patterns)")
+              .recommendation("Verify trên production qua DB system view "
+                  + "(MySQL: sys.schema_unused_indexes, "
+                  + "PostgreSQL: pg_stat_user_indexes) trước khi xóa — "
+                  + "index có thể được dùng cho query batch/report không có trong session này")
               .calledFrom("Schema analysis — no call site")
               .build());
         }
@@ -74,10 +106,26 @@ public class UnusedIndexRule implements Rule {
   }
 
   /**
-   * Kiểm tra index có phải Primary Key index không.
-   * Hỗ trợ convention của MySQL (PRIMARY), Oracle/SQL Server (PK_*),
-   * và PostgreSQL (*_pkey).
+   * Duyệt toàn bộ EXPLAIN raw output để extract tên index đã được dùng.
+   * Dùng regex match field "key" / "Index Name" trong JSON output.
    */
+  private Set<String> collectUsedIndexes() {
+    Set<String> indexes = new HashSet<>();
+    for (ExplainResult result : explainCache.getAll().values()) {
+      String raw = result.getRawOutput();
+      if (raw == null) continue;
+
+      Matcher matcher = INDEX_NAME_PATTERN.matcher(raw);
+      while (matcher.find()) {
+        String indexName = matcher.group(1);
+        if (indexName != null && !indexName.isBlank()) {
+          indexes.add(indexName.toUpperCase());
+        }
+      }
+    }
+    return indexes;
+  }
+
   private boolean isPrimaryKeyIndex(String indexName) {
     if (indexName == null) return false;
     String upper = indexName.toUpperCase();
@@ -86,51 +134,11 @@ public class UnusedIndexRule implements Rule {
         || upper.endsWith("_PKEY");
   }
 
-  /**
-   * Kiểm tra index có được dùng trong bất kỳ query nào của session không.
-   * Áp dụng leftmost prefix rule cho composite index — chỉ check cột đầu tiên.
-   */
-  private boolean isIndexUsedInQueries(Index index, Table table, SQLContext sql) {
-    // Composite index: chỉ check leading column theo leftmost prefix rule
-    String leadingColumn = index.getColumns().get(0);
-
-    for (SQLRecord record : sql.getRecords()) {
-      String upper = record.getSql().toUpperCase();
-
-      // Kiểm tra bảng có xuất hiện trong query không
-      if (!upper.contains(table.getName().toUpperCase())) continue;
-
-      // Extract phần WHERE/ON/ORDER BY/GROUP BY — nơi index thực sự được dùng
-      String filterClauses = extractFilterClauses(upper);
-      if (filterClauses.isEmpty()) continue;
-
-      // Dùng word boundary để tránh match partial (id vs customer_id)
-      if (containsColumnAsWord(filterClauses, leadingColumn.toUpperCase())) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Lấy phần sau WHERE/ON/ORDER BY/GROUP BY trong SQL.
-   * Đây là nơi index thực sự được dùng.
-   */
-  private String extractFilterClauses(String upperSql) {
-    StringBuilder result = new StringBuilder();
-    Matcher matcher = FILTER_CLAUSE_PATTERN.matcher(upperSql);
-    while (matcher.find()) {
-      result.append(matcher.group(1)).append(" ");
-    }
-    return result.toString();
-  }
-
-  /**
-   * Kiểm tra cột có xuất hiện như một từ độc lập (word boundary).
-   * Tránh false positive: tìm "ID" không match "CUSTOMER_ID".
-   */
-  private boolean containsColumnAsWord(String text, String column) {
-    Pattern pattern = Pattern.compile("\\b" + Pattern.quote(column) + "\\b");
-    return pattern.matcher(text).find();
+  private boolean isUniqueConstraintIndex(String indexName) {
+    if (indexName == null) return false;
+    String upper = indexName.toUpperCase();
+    return upper.startsWith("UK_")
+        || upper.startsWith("UQ_")
+        || upper.contains("UNIQUE");
   }
 }

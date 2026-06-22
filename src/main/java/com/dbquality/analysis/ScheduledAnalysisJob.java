@@ -3,6 +3,7 @@ package com.dbquality.analysis;
 import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.QueryMetricsStore;
+import com.dbquality.explain.ExplainCache;
 import com.dbquality.report.AnalysisResultStore;
 import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
@@ -39,6 +40,7 @@ public class ScheduledAnalysisJob {
   private final RuleEngine ruleEngine;
   private final long intervalMs;
   private final long initialDelayMs;
+  private final ExplainCache explainCache;
 
   private ScheduledExecutorService scheduler;
   private volatile boolean running = false;
@@ -47,6 +49,7 @@ public class ScheduledAnalysisJob {
       QueryMetricsStore metricsStore,
       AnalysisResultStore resultStore,
       RuleEngine ruleEngine,
+      ExplainCache explainCache,
       long intervalMs,
       long initialDelayMs) {
     this.dataSource = dataSource;
@@ -55,6 +58,7 @@ public class ScheduledAnalysisJob {
     this.ruleEngine = ruleEngine;
     this.intervalMs = intervalMs;
     this.initialDelayMs = initialDelayMs;
+    this.explainCache = explainCache;
   }
 
   /**
@@ -118,13 +122,20 @@ public class ScheduledAnalysisJob {
         ddlContext = new DDLCollector().collect(conn);
       }
 
-      // 2. Run rule engine — trả về List<Finding> trực tiếp
+      // 2. Warm-up EXPLAIN cache cho các SQL pattern mới
+      if (explainCache != null) {
+        for (var metric : metricsStore.getAllMetrics()) {
+          explainCache.getOrCompute(metric.getSqlPattern());
+        }
+      }
+
+      // 3. Run rule engine
       List<Finding> findings = ruleEngine.analyze(ddlContext, metricsStore);
 
-      // 3. Calculate score
+      // 4. Calculate score
       int score = calculateScore(findings);
 
-      // 4. Update cache
+      // 5. Update cache
       long duration = System.currentTimeMillis() - startTime;
       resultStore.update(findings, score, duration);
 

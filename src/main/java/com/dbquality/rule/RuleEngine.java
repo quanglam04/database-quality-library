@@ -4,6 +4,7 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.SQLContext;
 import com.dbquality.constant.Severity;
+import com.dbquality.explain.ExplainCache;
 import com.dbquality.rule.impl.*;
 
 import java.util.ArrayList;
@@ -12,32 +13,50 @@ import java.util.List;
 /**
  * Chạy tất cả các rules đã đăng ký và tổng hợp kết quả.
  *
- * <p>Hỗ trợ 2 mode analysis:</p>
+ * <p>Hỗ trợ 2 loại rule:</p>
  * <ul>
- *   <li>{@link #analyze(DDLContext, SQLContext)} — legacy, dùng SQLContext với raw records</li>
- *   <li>{@link #analyze(DDLContext, QueryMetricsStore)} — new, dùng aggregated metrics</li>
+ *   <li>{@link Rule} — legacy, dùng {@link SQLContext}</li>
+ *   <li>{@link MetricsBasedRule} — mới, dùng {@link QueryMetricsStore} (Phase 2+)</li>
  * </ul>
- *
  */
 public class RuleEngine {
 
-  private final List<Rule> rules = new ArrayList<>();
+  private final List<Rule> legacyRules = new ArrayList<>();
+  private final List<MetricsBasedRule> metricsRules = new ArrayList<>();
 
   public RuleEngine register(Rule rule) {
-    rules.add(rule);
+    legacyRules.add(rule);
+    return this;
+  }
+
+  public RuleEngine register(MetricsBasedRule rule) {
+    metricsRules.add(rule);
     return this;
   }
 
   /**
-   * Chạy rules với SQLContext (legacy mode).
-   * Giữ lại để backward compat trong giai đoạn migration.
+   * Chạy rules với SQLContext (legacy mode — chỉ chạy legacy rules).
    */
   public List<Finding> analyze(DDLContext ddl, SQLContext sql) {
     List<Finding> allFindings = new ArrayList<>();
+    runLegacyRules(ddl, sql, allFindings);
+    return allFindings;
+  }
 
-    for (Rule rule : rules) {
+  /**
+   * Chạy rules với QueryMetricsStore — chạy cả legacy (qua adapter) và metrics rules.
+   */
+  public List<Finding> analyze(DDLContext ddl, QueryMetricsStore metrics) {
+    List<Finding> allFindings = new ArrayList<>();
+
+    // Legacy rules qua adapter
+    SQLContext adapter = adaptMetricsToSQLContext(metrics);
+    runLegacyRules(ddl, adapter, allFindings);
+
+    // Metrics-based rules dùng trực tiếp
+    for (MetricsBasedRule rule : metricsRules) {
       try {
-        RuleResult result = rule.analyze(ddl, sql);
+        RuleResult result = rule.analyze(ddl, metrics);
         allFindings.addAll(result.getFindings());
       } catch (Exception e) {
         allFindings.add(Finding.builder()
@@ -52,32 +71,25 @@ public class RuleEngine {
     return allFindings;
   }
 
-  /**
-   * Chạy rules với QueryMetricsStore (new mode).
-   *
-   * <p>Convert metrics thành SQLContext tạm thời để các rule chưa migrate
-   * vẫn chạy được. Sau Phase 3, mọi rule sẽ dùng metrics trực tiếp và
-   * adapter này sẽ được remove.</p>
-   */
-  public List<Finding> analyze(DDLContext ddl, QueryMetricsStore metricsStore) {
-    SQLContext adapter = adaptMetricsToSQLContext(metricsStore);
-    return analyze(ddl, adapter);
+  private void runLegacyRules(DDLContext ddl, SQLContext sql, List<Finding> out) {
+    for (Rule rule : legacyRules) {
+      try {
+        RuleResult result = rule.analyze(ddl, sql);
+        out.addAll(result.getFindings());
+      } catch (Exception e) {
+        out.add(Finding.builder()
+            .rule(rule.getName())
+            .severity(Severity.WARNING)
+            .message("Rule execution failed: " + e.getMessage())
+            .recommendation("Check rule implementation")
+            .build());
+      }
+    }
   }
 
-  /**
-   * Adapter tạm thời: build SQLContext từ QueryMetricsStore.
-   * Mỗi metric tạo ra một SQLRecord đại diện với calledFrom phổ biến nhất
-   * và executionTime = avg duration.
-   *
-   * <p>Note: Adapter này mất thông tin chi tiết (variance, distribution),
-   * chỉ phù hợp cho rule cũ chưa cần metrics phân tích sâu. Rule mới
-   * nên dùng QueryMetricsStore trực tiếp.</p>
-   */
   private SQLContext adaptMetricsToSQLContext(QueryMetricsStore store) {
     SQLContext context = new SQLContext();
     for (var metric : store.getAllMetrics()) {
-      // Tạo SQLRecord representative cho mỗi metric
-      // Số lượng record = callCount để N+1 rule cũ vẫn detect được
       for (long i = 0; i < metric.getCallCount(); i++) {
         context.add(com.dbquality.collector.SQLRecord.builder()
             .sql(metric.getSqlPattern())
@@ -91,21 +103,37 @@ public class RuleEngine {
   }
 
   public int getRuleCount() {
-    return rules.size();
+    return legacyRules.size() + metricsRules.size();
   }
 
+  /**
+   * Tạo RuleEngine với toàn bộ built-in rules.
+   * Rule 2,3,4 (FullTableScan, MissingIndex, UnusedIndex) dùng EXPLAIN
+   * thông qua ExplainCache.
+   */
   public static RuleEngine withDefaultRules(long slowQueryThresholdMs,
-      int nPlusOneThreshold) {
-    return new RuleEngine()
+      int nPlusOneThreshold, ExplainCache explainCache) {
+    RuleEngine engine = new RuleEngine()
         .register(new MissingPrimaryKeyRule())
         .register(new UnindexedForeignKeyRule())
         .register(new SelectStarRule())
         .register(new SlowQueryRule(slowQueryThresholdMs))
         .register(new NPlusOneRule(nPlusOneThreshold))
         .register(new NullableRiskRule())
-        .register(new FullTableScanCandidateRule())
-        .register(new UnusedIndexRule())
-        .register(new SuspiciousDataTypeRule())
-        .register(new MissingIndexSuggestionRule());
+        .register(new SuspiciousDataTypeRule());
+
+    if (explainCache != null) {
+      engine.register(new FullTableScanRule(explainCache));
+      engine.register(new MissingIndexRule(explainCache));
+      engine.register(new UnusedIndexRule(explainCache));
+    }
+
+    return engine;
+  }
+
+  // Giữ overload cũ cho backward compat (chưa có ExplainCache)
+  public static RuleEngine withDefaultRules(long slowQueryThresholdMs,
+      int nPlusOneThreshold) {
+    return withDefaultRules(slowQueryThresholdMs, nPlusOneThreshold, null);
   }
 }
