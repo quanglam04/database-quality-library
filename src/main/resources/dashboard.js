@@ -14,7 +14,6 @@ async function loadData() {
       fetch('/report'),
       fetch('/slow-queries'),
       fetch('/project-info'),
-      fetch('/metrics-trend'),
       fetch('/analysis-status')
     ]);
 
@@ -23,7 +22,6 @@ async function loadData() {
     const report      = await reportRes.json();
     const slowQueries = await slowRes.json();
     const projectInfo = await projectRes.json();
-    const trend       = await trendRes.json();
     const status      = await statusRes.json();
 
 
@@ -33,7 +31,6 @@ async function loadData() {
     updateTopTables(report.metrics?.topTablesByQueryFrequency);
     updateFindings(findings);
     updateScore(metrics.score ?? report.overallScore);
-    updateLatencyTrend(trend);
     updateAnalysisStatus(status);
 
     const lastUpdate = document.getElementById('lastUpdate');
@@ -616,117 +613,6 @@ function formatUptime(seconds) {
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
-}
-
-function updateLatencyTrend(buckets) {
-  if (!document.getElementById('chartTooltip')) {
-    const tip = document.createElement('div');
-    tip.id = 'chartTooltip';
-    tip.style.cssText = 'position:fixed; background:#1e293b; border:1px solid #334155; ' +
-      'border-radius:6px; padding:6px 10px; font-size:11px; color:#e2e8f0; ' +
-      'pointer-events:none; display:none; z-index:9999;';
-    document.body.appendChild(tip);
-  }
-  const container = document.getElementById('latencyTrendChart');
-  if (!buckets || buckets.length === 0) {
-    container.innerHTML = '<div class="empty">No trend data yet — wait for more queries</div>';
-    return;
-  }
-  if (buckets.length < 2) {
-    container.innerHTML = '<div class="empty">Collecting data... (' + buckets.length + ' bucket so far)</div>';
-    return;
-  }
-
-  const W = container.clientWidth || 800;
-  const H = 160;
-  const PAD = { top: 16, right: 16, bottom: 32, left: 48 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-
-  const p99Values = buckets.map(b => b.p99);
-  const p95Values = buckets.map(b => b.p95);
-  const p50Values = buckets.map(b => b.p50);
-  const maxVal    = Math.max(...p99Values, 1);
-
-  const xStep = chartW / (buckets.length - 1);
-  const yScale = v => chartH - (v / maxVal * chartH);
-
-  const toPath = values => values.map((v, i) =>
-    (i === 0 ? 'M' : 'L') + (PAD.left + i * xStep).toFixed(1) + ',' + (PAD.top + yScale(v)).toFixed(1)
-  ).join(' ');
-
-  // X-axis labels — show first, middle, last
-  const labelIndices = [0, Math.floor(buckets.length / 2), buckets.length - 1];
-  const xLabels = labelIndices.map(i => {
-    const t = new Date(buckets[i].bucketStart);
-    const hh = String(t.getHours()).padStart(2, '0');
-    const mm = String(t.getMinutes()).padStart(2, '0');
-    const ss = String(t.getSeconds()).padStart(2, '0');
-    return `<text x="${(PAD.left + i * xStep).toFixed(1)}" y="${H - 4}"
-      fill="#64748b" font-size="10" text-anchor="middle">${hh}:${mm}:${ss}</text>`;
-  }).join('');
-
-  // Y-axis labels
-  const yLabels = [0, Math.round(maxVal / 2), maxVal].map(v => {
-    const y = PAD.top + yScale(v);
-    return `<text x="${PAD.left - 6}" y="${y.toFixed(1)}"
-      fill="#64748b" font-size="10" text-anchor="end" dominant-baseline="middle">${v}ms</text>`;
-  }).join('');
-
-  // Tooltip points — invisible circles for hover
-  const makePoints = (values, color, label) => buckets.map((b, i) => {
-    const cx = (PAD.left + i * xStep).toFixed(1);
-    const cy = (PAD.top + yScale(values[i])).toFixed(1);
-    const t   = new Date(b.bucketStart);
-    const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
-    const tip  = `${time} — ${label}: ${values[i]}ms (${b.queryCount} queries)`;
-    return `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.8"
-      pointer-events="all" style="cursor:pointer"
-      onmouseenter="showChartTip(event,'${tip}')"
-      onmouseleave="hideChartTip()"/>`;
-  }).join('');
-
-  const p50Points = makePoints(p50Values, '#3b82f6', 'P50');
-  const p95Points = makePoints(p95Values, '#f59e0b', 'P95');
-  const p99Points = makePoints(p99Values, '#ef4444', 'P99');
-
-  container.innerHTML = `
-    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-      <!-- Grid lines -->
-      ${[0, 0.25, 0.5, 0.75, 1].map(r => {
-        const y = (PAD.top + chartH * (1 - r)).toFixed(1);
-        return `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + chartW}" y2="${y}"
-          stroke="#1e293b" stroke-width="1"/>`;
-      }).join('')}
-
-      <!-- Lines -->
-      <path d="${toPath(p50Values)}" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
-      <path d="${toPath(p95Values)}" fill="none" stroke="#f59e0b" stroke-width="1.5" opacity="0.6"/>
-      <path d="${toPath(p99Values)}" fill="none" stroke="#ef4444" stroke-width="2"/>
-
-      <!-- Data points P99 -->
-      ${p50Points}
-      ${p95Points}
-      ${p99Points}
-
-      <!-- Axes -->
-      <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + chartH}"
-        stroke="#334155" stroke-width="1"/>
-      <line x1="${PAD.left}" y1="${PAD.top + chartH}" x2="${PAD.left + chartW}" y2="${PAD.top + chartH}"
-        stroke="#334155" stroke-width="1"/>
-
-      <!-- Labels -->
-      ${yLabels}
-      ${xLabels}
-
-      <!-- Legend -->
-      <line x1="${W - 120}" y1="${H - 14}" x2="${W - 105}" y2="${H - 14}" stroke="#3b82f6" stroke-width="2"/>
-      <text x="${W - 100}" y="${H - 10}" fill="#64748b" font-size="10">P50</text>
-      <line x1="${W - 80}" y1="${H - 14}" x2="${W - 65}" y2="${H - 14}" stroke="#f59e0b" stroke-width="2"/>
-      <text x="${W - 60}" y="${H - 10}" fill="#64748b" font-size="10">P95</text>
-      <line x1="${W - 40}" y1="${H - 14}" x2="${W - 25}" y2="${H - 14}" stroke="#ef4444" stroke-width="2"/>
-      <text x="${W - 20}" y="${H - 10}" fill="#64748b" font-size="10">P99</text>
-    </svg>`;
 }
 
 function updateTopTables(topTables) {

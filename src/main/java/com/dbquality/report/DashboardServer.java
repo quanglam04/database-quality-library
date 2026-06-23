@@ -5,7 +5,6 @@ import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.ProjectInfoCollector;
 import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.config.QualityConfig;
-import com.dbquality.metrics.MetricsCollector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -56,7 +55,6 @@ public class DashboardServer {
   private final ObjectMapper mapper;
   private final Supplier<Connection> connectionSupplier;
   private final ProjectInfoCollector projectInfoCollector;
-  private final MetricsCollector metricsCollector;
   private HttpServer server;
 
   public DashboardServer(QualityConfig config,
@@ -77,7 +75,6 @@ public class DashboardServer {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     this.projectInfoCollector = new ProjectInfoCollector(
         System.currentTimeMillis(), config.getDashboardPort());
-    this.metricsCollector = new MetricsCollector();
   }
 
   public void start() throws IOException {
@@ -91,7 +88,6 @@ public class DashboardServer {
     server.createContext("/collected-queries", this::handleCollectedQueries);
     server.createContext("/schema-snapshot", this::handleSchemaSnapshot);
     server.createContext("/project-info", this::handleProjectInfo);
-    server.createContext("/metrics-trend", this::handleMetricsTrend);
 
     // Analysis endpoints (read from resultStore cache)
     server.createContext("/findings", this::handleFindings);
@@ -213,29 +209,7 @@ public class DashboardServer {
     }
   }
 
-  /**
-   * Latency trend — dùng max duration của mỗi metric để build trend.
-   * Approximation vì không có per-call duration nữa.
-   */
-  private void handleMetricsTrend(HttpExchange exchange) throws IOException {
-    metricsCollector.clear();
-    // Sync từ metricsStore vào MetricsCollector (adapter)
-    for (var m : metricsStore.getAllMetrics()) {
-      // Generate synthetic records cho trend bucketing
-      // (MetricsCollector expect record với timestamp - dùng lastSeenAt)
-      metricsCollector.recordSnapshot(
-          m.getSqlPattern(),
-          m.getAvgDurationMs(),
-          m.getLastSeenAt(),
-          m.getCallCount()
-      );
-    }
-    String json = mapper.writeValueAsString(metricsCollector.getBucketMetrics());
-    sendResponse(exchange, 200, "application/json", json);
-  }
-
   //  Analysis handlers
-
   /**
    * Findings từ analysis gần nhất.
    * Chỉ trả cache — không trigger analysis mới.
