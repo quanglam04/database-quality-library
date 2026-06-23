@@ -170,9 +170,9 @@ public class FullTableScanRule implements MetricsBasedRule {
       Severity defaultSeverity) {
     long totalImpact = metric.getCallCount() * (long) metric.getAvgDurationMs();
 
-    // Ưu tiên check rows — vì rows phản ánh scale, không phụ thuộc DB tốc độ
-    if (rowsScanned >= 1000) return Severity.HIGH;
-    if (rowsScanned >= 100) return Severity.MEDIUM;
+    // Ưu tiên check rows
+    if (rowsScanned >= 500) return Severity.HIGH;
+    if (rowsScanned >= 50) return Severity.MEDIUM;
 
     // Fallback theo total impact thời gian
     if (totalImpact > 5000) return Severity.HIGH;
