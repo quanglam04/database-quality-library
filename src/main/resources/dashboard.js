@@ -8,7 +8,7 @@ async function loadData() {
   if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 600); }
 
   try {
-    const [metricsRes, findingsRes, reportRes, slowRes, projectRes, trendRes, statusRes] = await Promise.all([
+    const [metricsRes, findingsRes, reportRes, slowRes, projectRes, statusRes] = await Promise.all([
       fetch('/metrics'),
       fetch('/findings'),
       fetch('/report'),
