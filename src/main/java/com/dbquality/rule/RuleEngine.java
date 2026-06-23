@@ -1,95 +1,106 @@
 package com.dbquality.rule;
 
 import com.dbquality.collector.DDLContext;
-import com.dbquality.collector.SQLContext;
-
+import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.constant.Severity;
-import com.dbquality.rule.impl.FullTableScanCandidateRule;
-import com.dbquality.rule.impl.MissingIndexSuggestionRule;
-import com.dbquality.rule.impl.MissingPrimaryKeyRule;
-import com.dbquality.rule.impl.NPlusOneRule;
-import com.dbquality.rule.impl.NullableRiskRule;
-import com.dbquality.rule.impl.SelectStarRule;
-import com.dbquality.rule.impl.SlowQueryRule;
-import com.dbquality.rule.impl.SuspiciousDataTypeRule;
-import com.dbquality.rule.impl.UnindexedForeignKeyRule;
-import com.dbquality.rule.impl.UnusedIndexRule;
+import com.dbquality.explain.ExplainCache;
+import com.dbquality.rule.impl.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Chạy tất cả các rules đã đăng ký và tổng hợp kết quả. <br>
- * Mỗi rule phân tích độc lập — kết quả được gộp lại thành danh sách findings.
+ * Chạy tất cả các rules đã đăng ký và tổng hợp kết quả.
+ *
+ * <p>Sau Phase 3 refactor, có 2 loại rule:</p>
+ * <ul>
+ *   <li>{@link Rule} — schema-only rules (không cần SQL metrics)</li>
+ *   <li>{@link MetricsBasedRule} — rules dùng aggregated metrics</li>
+ * </ul>
+ *
+ * <p>Cả 2 đều nhận {@link DDLContext}; metrics rules nhận thêm
+ * {@link QueryMetricsStore}.</p>
  */
 public class RuleEngine {
 
-  private final List<Rule> rules = new ArrayList<>();
+  private final List<Rule> schemaRules = new ArrayList<>();
+  private final List<MetricsBasedRule> metricsRules = new ArrayList<>();
 
-  /**
-   * Đăng ký một rule vào engine.
-   *
-   * @param rule rule cần thêm vào
-   * @return this — hỗ trợ chaining
-   */
   public RuleEngine register(Rule rule) {
-    rules.add(rule);
+    schemaRules.add(rule);
+    return this;
+  }
+
+  public RuleEngine register(MetricsBasedRule rule) {
+    metricsRules.add(rule);
     return this;
   }
 
   /**
-   * Chạy tất cả rules đã đăng ký và trả về toàn bộ findings.
-   *
-   * @param ddl  cấu trúc database đã thu thập
-   * @param sql  SQL records đã thu thập trong session
-   * @return     danh sách tất cả findings từ mọi rule
+   * Chạy tất cả rules — cả schema và metrics-based.
    */
-  public List<Finding> analyze(DDLContext ddl, SQLContext sql) {
+  public List<Finding> analyze(DDLContext ddl, QueryMetricsStore metrics) {
     List<Finding> allFindings = new ArrayList<>();
 
-    for (Rule rule : rules) {
+    // Schema rules — dùng SQLContext rỗng vì các rule này chỉ dựa vào DDL
+    for (Rule rule : schemaRules) {
       try {
-        RuleResult result = rule.analyze(ddl, sql);
+        RuleResult result = rule.analyze(ddl, new com.dbquality.collector.SQLContext());
         allFindings.addAll(result.getFindings());
       } catch (Exception e) {
-        // 1 rule lỗi không ảnh hưởng các rule khác
-        allFindings.add(Finding.builder()
-            .rule(rule.getName())
-            .severity(Severity.WARNING)
-            .message("Rule execution failed: " + e.getMessage())
-            .recommendation("Check rule implementation")
-            .build());
+        allFindings.add(buildErrorFinding(rule.getName(), e));
+      }
+    }
+
+    // Metrics rules
+    for (MetricsBasedRule rule : metricsRules) {
+      try {
+        RuleResult result = rule.analyze(ddl, metrics);
+        allFindings.addAll(result.getFindings());
+      } catch (Exception e) {
+        allFindings.add(buildErrorFinding(rule.getName(), e));
       }
     }
 
     return allFindings;
   }
 
-  /**
-   * @return số lượng rules đã đăng ký
-   */
-  public int getRuleCount() {
-    return rules.size();
+  private Finding buildErrorFinding(String ruleName, Exception e) {
+    return Finding.builder()
+        .rule(ruleName)
+        .severity(Severity.WARNING)
+        .message("Rule execution failed: " + e.getMessage())
+        .recommendation("Check rule implementation")
+        .build();
   }
 
-  /**
-   * Tạo RuleEngine với toàn bộ built-in rules mặc định.
-   *
-   * @param slowQueryThresholdMs ngưỡng slow query tính bằng milliseconds
-   * @param nPlusOneThreshold    ngưỡng số lần lặp để phát hiện N+1
-   * @return RuleEngine đã được cấu hình sẵn
-   */
+  public int getRuleCount() {
+    return schemaRules.size() + metricsRules.size();
+  }
+
   public static RuleEngine withDefaultRules(long slowQueryThresholdMs,
-      int nPlusOneThreshold) {
-    return new RuleEngine()
+      int nPlusOneThreshold, ExplainCache explainCache) {
+    RuleEngine engine = new RuleEngine()
         .register(new MissingPrimaryKeyRule())
         .register(new UnindexedForeignKeyRule())
-        .register(new SelectStarRule())
-        .register(new SlowQueryRule(slowQueryThresholdMs))
-        .register(new NPlusOneRule(nPlusOneThreshold))
         .register(new NullableRiskRule())
-        .register(new FullTableScanCandidateRule())
-        .register(new UnusedIndexRule())
-        .register(new SuspiciousDataTypeRule())
-        .register(new MissingIndexSuggestionRule());
+        .register(new SuspiciousDataTypeRule());
+
+    engine.register(new SelectStarRule());
+    engine.register(new NPlusOneRule(nPlusOneThreshold));
+    engine.register(new SlowQueryRule(slowQueryThresholdMs));
+
+    if (explainCache != null) {
+      engine.register(new FullTableScanRule(explainCache));
+      engine.register(new MissingIndexRule(explainCache));
+      engine.register(new UnusedIndexRule(explainCache));
+    }
+
+    return engine;
+  }
+
+  public static RuleEngine withDefaultRules(long slowQueryThresholdMs,
+      int nPlusOneThreshold) {
+    return withDefaultRules(slowQueryThresholdMs, nPlusOneThreshold, null);
   }
 }

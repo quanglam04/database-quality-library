@@ -185,4 +185,7 @@ public class Constant {
    * <br>Ví dụ: {@code SELECT * FROM users}
    */
   public static final String SELECT_STAR_PATTERN = "(?i)SELECT\\s+\\*\\s+FROM";
+
+  public static final String INDEX_NAME_PATTERN = "\"(?:key|Index Name|index_name)\"\\s*:\\s*\"([^\"]+)\"";
+
 }

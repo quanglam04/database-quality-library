@@ -1,5 +1,6 @@
 package com.dbquality.collector;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -55,11 +56,6 @@ public class SQLCollector {
         .collect(Collectors.groupingBy(SQLRecord::getSql));
   }
 
-  /**
-   * @return các pattern SQL bị lặp lại nhiều hơn threshold lần
-   *
-   * @param threshold ngưỡng số lần lặp
-   */
   public List<SQLRecord> getRepeatedPatterns(int threshold) {
     return groupBySqlPattern().entrySet().stream()
         .filter(e -> e.getValue().size() > threshold)
@@ -67,11 +63,6 @@ public class SQLCollector {
         .collect(Collectors.toList());
   }
 
-  /**
-   * @return top N queries chậm nhất theo avg execution time
-   *
-   * @param n số lượng queries muốn lấy
-   */
   public List<SQLRecord> getTopSlowQueries(int n) {
     return sqlContext.getRecords().stream()
         .sorted((a, b) -> Long.compare(b.getExecutionTime(), a.getExecutionTime()))
@@ -79,26 +70,16 @@ public class SQLCollector {
         .collect(Collectors.toList());
   }
 
-  /**
-   * @return tổng số SQL đã được intercept
-   */
   public int getTotalCount() {
     return sqlContext.getRecords().size();
   }
 
-  /**
-   * @return số lượng SQL bị lỗi
-   */
   public int getFailedCount() {
     return (int) sqlContext.getRecords().stream()
         .filter(r -> !r.isSuccess())
         .count();
   }
 
-  /**
-   * @return thống kê số lần query theo tên bảng
-   * Phân tích từ SQL text — tìm keyword FROM/JOIN/INTO/UPDATE
-   */
   public Map<String, Long> getQueryCountByTable() {
     return sqlContext.getRecords().stream()
         .flatMap(r -> extractTableNames(r.getSql()).stream())
@@ -108,10 +89,10 @@ public class SQLCollector {
         ));
   }
 
-  // ── Helper ────────────────────────────────────────────────────────
+  //  Helper
 
   private List<String> extractTableNames(String sql) {
-    List<String> tables = new java.util.ArrayList<>();
+    List<String> tables = new ArrayList<>();
     if (sql == null) return tables;
 
     String upper = sql.toUpperCase();

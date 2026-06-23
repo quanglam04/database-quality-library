@@ -8,13 +8,14 @@ async function loadData() {
   if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 600); }
 
   try {
-    const [metricsRes, findingsRes, reportRes, slowRes, projectRes, trendRes] = await Promise.all([
+    const [metricsRes, findingsRes, reportRes, slowRes, projectRes, trendRes, statusRes] = await Promise.all([
       fetch('/metrics'),
       fetch('/findings'),
       fetch('/report'),
       fetch('/slow-queries'),
       fetch('/project-info'),
-      fetch('/metrics-trend')
+      fetch('/metrics-trend'),
+      fetch('/analysis-status')
     ]);
 
     const metrics     = await metricsRes.json();
@@ -22,14 +23,18 @@ async function loadData() {
     const report      = await reportRes.json();
     const slowQueries = await slowRes.json();
     const projectInfo = await projectRes.json();
-    const trend = await trendRes.json();
+    const trend       = await trendRes.json();
+    const status      = await statusRes.json();
+
 
     updateSlowQueries(slowQueries);
     updateProjectInfo(projectInfo);
     updateMetrics(metrics);
+    updateTopTables(report.metrics?.topTablesByQueryFrequency);
     updateFindings(findings);
-    updateScore(report.overallScore);
+    updateScore(metrics.score ?? report.overallScore);
     updateLatencyTrend(trend);
+    updateAnalysisStatus(status);
 
     const lastUpdate = document.getElementById('lastUpdate');
     if (lastUpdate) {
@@ -38,18 +43,18 @@ async function loadData() {
     }
 
     if (report.aiInsights === '__LOADING__') {
-        document.getElementById('aiInsightsSection').style.display = 'block';
-        document.getElementById('aiInsightsContent').innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px; color:#64748b; padding:12px 0">
-                <div style="width:16px; height:16px; border:2px solid #3b82f6;
-                            border-top-color:transparent; border-radius:50%;
-                            animation:spin 0.8s linear infinite"></div>
-                Đang phân tích với AI, vui lòng chờ...
-            </div>`;
+      document.getElementById('aiInsightsSection').style.display = 'block';
+      document.getElementById('aiInsightsContent').innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; color:#64748b; padding:12px 0">
+          <div style="width:16px; height:16px; border:2px solid #3b82f6;
+                      border-top-color:transparent; border-radius:50%;
+                      animation:spin 0.8s linear infinite"></div>
+          Đang phân tích với AI, vui lòng chờ...
+        </div>`;
     } else if (report.aiInsights) {
-        document.getElementById('aiInsightsSection').style.display = 'block';
-        const cleaned = report.aiInsights.replace(/\n{2,}/g, '\n\n').trim();
-        document.getElementById('aiInsightsContent').innerHTML = marked.parse(cleaned);
+      document.getElementById('aiInsightsSection').style.display = 'block';
+      const cleaned = report.aiInsights.replace(/\n{2,}/g, '\n\n').trim();
+      document.getElementById('aiInsightsContent').innerHTML = marked.parse(cleaned);
     }
   } catch (e) {
     document.getElementById('findingsList').innerHTML =
@@ -57,9 +62,213 @@ async function loadData() {
   }
 }
 
+//  Analysis Status
+
+function updateAnalysisStatus(status) {
+  const lastEl = document.getElementById('lastAnalysisLabel');
+  const nextEl = document.getElementById('nextAnalysisLabel');
+  if (!status) return;
+
+  if (!status.firstAnalysisDone) {
+    lastEl.textContent = 'Last analysis: chưa chạy';
+    nextEl.textContent = status.scheduledEnabled
+      ? 'Next: chuẩn bị chạy lần đầu...'
+      : 'Scheduled: disabled (manual only)';
+    return;
+  }
+
+  lastEl.textContent = 'Last analysis: ' + formatRelativeTime(status.secondsSinceLastAnalysis);
+  if (status.scheduledEnabled && status.nextScheduledInSeconds >= 0) {
+    nextEl.textContent = 'Next: in ' + formatDuration(status.nextScheduledInSeconds);
+  } else {
+    nextEl.textContent = 'Scheduled: disabled';
+  }
+}
+
+function formatRelativeTime(seconds) {
+  if (seconds < 0) return '--';
+  if (seconds < 60) return seconds + 's ago';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  return Math.floor(seconds / 86400) + 'd ago';
+}
+
+function formatDuration(seconds) {
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86400) + 'd';
+}
+
+async function triggerAnalyzeNow() {
+  const btn = document.getElementById('analyzeNowBtn');
+  btn.disabled = true;
+  btn.textContent = ' Analyzing...';
+  try {
+    await fetch('/analyze-now', { method: 'POST' });
+    // Đợi 1 chút để job chạy xong rồi reload data
+    setTimeout(() => loadData(), 1500);
+  } catch (e) {
+    console.error('Analyze trigger failed:', e);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '⚡ Run Analysis Now';
+    }, 1500);
+  }
+}
+
+//  Collected Queries Tab
+
+async function loadCollectedQueries() {
+  const container = document.getElementById('collectedQueriesList');
+  container.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch('/collected-queries');
+    const queries = await res.json();
+    renderCollectedQueries(queries);
+  } catch (e) {
+    container.innerHTML = '<div class="error">Failed: ' + e.message + '</div>';
+  }
+}
+
+function renderCollectedQueries(queries) {
+  const container = document.getElementById('collectedQueriesList');
+  if (!queries || queries.length === 0) {
+    container.innerHTML = '<div class="empty">Chưa có SQL nào được intercept</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px; font-size:12px; color:#64748b">
+      Tổng <b style="color:#e2e8f0">${queries.length}</b> unique SQL patterns
+    </div>
+    <table style="width:100%; border-collapse:collapse">
+      <thead>
+        <tr style="border-bottom:1px solid #334155">
+          <th style="text-align:left; padding:8px; font-size:11px; color:#64748b">SQL Pattern</th>
+          <th style="text-align:right; padding:8px; font-size:11px; color:#64748b; width:80px">Count</th>
+          <th style="text-align:right; padding:8px; font-size:11px; color:#64748b; width:80px">Avg ms</th>
+          <th style="text-align:right; padding:8px; font-size:11px; color:#64748b; width:80px">Min/Max</th>
+          <th style="text-align:left; padding:8px; font-size:11px; color:#64748b; width:280px">Called From</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${queries.map(q => `
+          <tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:8px; font-size:11px; font-family:monospace; color:#94a3b8;
+                       max-width:400px; word-break:break-all">${escapeHtml(truncate(q.sqlPattern, 200))}</td>
+            <td style="padding:8px; text-align:right; font-size:12px; color:#e2e8f0">${q.callCount}</td>
+            <td style="padding:8px; text-align:right; font-size:12px; color:#fdba74">${q.avgDurationMs}</td>
+            <td style="padding:8px; text-align:right; font-size:11px; color:#64748b">${q.minDurationMs}/${q.maxDurationMs}</td>
+            <td style="padding:8px; font-size:11px; color:#64748b; word-break:break-all">${escapeHtml(q.calledFrom)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+function truncate(s, n) {
+  if (!s) return '';
+  return s.length <= n ? s : s.substring(0, n) + '...';
+}
+
+//  Schema Snapshot Tab
+
+async function loadSchemaSnapshot() {
+  const container = document.getElementById('schemaSnapshotList');
+  container.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch('/schema-snapshot');
+    const tables = await res.json();
+    renderSchemaSnapshot(tables);
+  } catch (e) {
+    container.innerHTML = '<div class="error">Failed: ' + e.message + '</div>';
+  }
+}
+
+function renderSchemaSnapshot(tables) {
+  const container = document.getElementById('schemaSnapshotList');
+  if (!tables || tables.length === 0) {
+    container.innerHTML = '<div class="empty">No tables collected</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px; font-size:12px; color:#64748b">
+      <b style="color:#e2e8f0">${tables.length}</b> tables —
+      ${tables.reduce((s, t) => s + t.columns.length, 0)} columns,
+      ${tables.reduce((s, t) => s + t.indexes.length, 0)} indexes,
+      ${tables.reduce((s, t) => s + (t.foreignKeys?.length ?? 0), 0)} foreign keys
+    </div>
+    ${tables.map(t => `
+      <div style="margin-bottom:16px; background:#0f172a; border:1px solid #334155;
+                  border-radius:8px; padding:12px">
+        <div style="display:flex; align-items:center; margin-bottom:10px">
+          <span style="font-size:14px; font-weight:600; color:#e2e8f0">${escapeHtml(t.name)}</span>
+          <span style="font-size:11px; color:#64748b; margin-left:8px">
+            ${t.columns.length} cols, ${t.indexes.length} indexes
+          </span>
+        </div>
+
+        <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:8px">Columns:</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px">
+          ${t.columns.map(c => `
+            <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
+                         font-size:11px; font-family:monospace; color:#94a3b8;
+                         ${c.primaryKey ? 'border:1px solid #f59e0b; color:#fcd34d' : ''}">
+              ${c.primaryKey ? '🔑 ' : ''}${escapeHtml(c.name)}
+              <span style="color:#64748b">${escapeHtml(c.type)}</span>
+              ${!c.nullable ? '<span style="color:#ef4444">!</span>' : ''}
+            </span>
+          `).join('')}
+        </div>
+
+        ${t.indexes.length > 0 ? `
+          <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:10px">Indexes:</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px">
+            ${t.indexes.map(i => `
+              <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
+                           font-size:11px; font-family:monospace; color:#22d3ee">
+                ${escapeHtml(i.name)}(${(i.columns || []).map(escapeHtml).join(', ')})
+              </span>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${t.foreignKeys && t.foreignKeys.length > 0 ? `
+          <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:10px">Foreign Keys:</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px">
+            ${t.foreignKeys.map(fk => `
+              <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
+                           font-size:11px; font-family:monospace; color:#a78bfa">
+                ${escapeHtml(fk.column)} → ${escapeHtml(fk.referencedTable)}.${escapeHtml(fk.referencedColumn)}
+              </span>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('')}`;
+}
+
+//  Tab switching
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  document.getElementById('tab-' + tab).style.display = 'block';
+  event.target.classList.add('active');
+
+  // Lazy load nội dung khi switch sang tab tương ứng
+  if (tab === 'queries') loadCollectedQueries();
+  if (tab === 'schema') loadSchemaSnapshot();
+}
+
+
 async function loadAIContext() {
   try {
-    const res  = await fetch('/ai-context');
+    const res = await fetch('/ai-context');
     const data = await res.json();
     document.getElementById('aiContextBlock').textContent = data.aiContext;
   } catch (e) {
@@ -67,22 +276,19 @@ async function loadAIContext() {
   }
 }
 
-
 async function refreshAI() {
-    const btn = document.getElementById('refreshAIBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Đang reset...';
-
-    try {
-        await fetch('/ai-refresh', { method: 'POST' });
-        // Trigger loadData ngay để hiện loading state
-        await loadData();
-    } catch (e) {
-        console.error('AI refresh failed:', e);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '🔄 Refresh AI';
-    }
+  const btn = document.getElementById('refreshAIBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang reset...';
+  try {
+    await fetch('/ai-refresh', { method: 'POST' });
+    await loadData();
+  } catch (e) {
+    console.error('AI refresh failed:', e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Refresh AI';
+  }
 }
 
 function copyAIContext() {
@@ -90,7 +296,7 @@ function copyAIContext() {
   navigator.clipboard.writeText(text).then(() => {
     const btn = event.target;
     btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    setTimeout(() => btn.textContent = ' Copy', 2000);
   });
 }
 
@@ -138,11 +344,10 @@ function updateMetrics(m) {
       <span class="latency-value">${m.p99Latency ?? 0}ms</span>
     </div>`;
 
-  const entries = Object.entries(m.topTablesByQueryFrequency ?? {});
-  document.getElementById('topTablesBody').innerHTML = entries.length === 0
-    ? '<tr><td colspan="2" class="empty">No data</td></tr>'
-    : entries.map(([t, c]) => `<tr><td>${t}</td><td>${c}</td></tr>`).join('');
+  // topTablesByQueryFrequency không có trong realtime metrics — lấy từ report endpoint
+  // Để đơn giản, có thể fetch riêng hoặc dùng từ /report. Giữ nguyên hiện tại.
 }
+
 
 function updateFindings(findings) {
   if (!findings || findings.length === 0) {
@@ -522,6 +727,16 @@ function updateLatencyTrend(buckets) {
       <line x1="${W - 40}" y1="${H - 14}" x2="${W - 25}" y2="${H - 14}" stroke="#ef4444" stroke-width="2"/>
       <text x="${W - 20}" y="${H - 10}" fill="#64748b" font-size="10">P99</text>
     </svg>`;
+}
+
+function updateTopTables(topTables) {
+  const tbody = document.getElementById('topTablesBody');
+  if (!tbody) return;
+
+  const entries = Object.entries(topTables ?? {});
+  tbody.innerHTML = entries.length === 0
+    ? '<tr><td colspan="2" class="empty">No data</td></tr>'
+    : entries.map(([t, c]) => `<tr><td>${t}</td><td>${c}</td></tr>`).join('');
 }
 
 function exportAIContext() {
