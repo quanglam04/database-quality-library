@@ -12,46 +12,29 @@ import java.util.stream.Collectors;
 /**
  * Thu thập và tổng hợp metrics theo time bucket.
  *
- * <p>Chia thời gian thành các bucket (mặc định 30 giây mỗi bucket).
- * Mỗi bucket lưu latency values của các SQL queries trong khoảng thời gian đó.
- * Dùng để vẽ trend chart trên dashboard — thấy latency tăng/giảm theo thời gian.</p>
- *
- * <p>Ví dụ với bucket size 30s:</p>
- * <pre>
- * 10:00:00 - 10:00:30 → [1ms, 2ms, 5ms] → P99=5ms
- * 10:00:30 - 10:01:00 → [1ms, 1ms, 800ms] → P99=800ms  ← spike!
- * 10:01:00 - 10:01:30 → [1ms, 2ms, 1ms] → P99=2ms
- * </pre>
+ * <p>Sau Phase 3 refactor, hỗ trợ 2 cách ghi:</p>
+ * <ul>
+ *   <li>{@link #record(SQLRecord)} — legacy, per-call</li>
+ *   <li>{@link #recordSnapshot(String, double, long, long)} — từ aggregated metrics</li>
+ * </ul>
  */
 public class MetricsCollector {
 
   private final long bucketSizeSeconds;
   private final LatencyCalculator calculator;
-
-  // Key: bucket start time (epoch seconds), Value: list of latencies in that bucket
   private final Map<Long, List<Long>> buckets = new ConcurrentHashMap<>();
 
-  /**
-   * Tạo MetricsCollector với bucket size mặc định 30 giây.
-   */
   public MetricsCollector() {
     this(30);
   }
 
-  /**
-   * Tạo MetricsCollector với bucket size tùy chỉnh.
-   *
-   * @param bucketSizeSeconds kích thước mỗi time bucket tính bằng giây
-   */
   public MetricsCollector(long bucketSizeSeconds) {
     this.bucketSizeSeconds = bucketSizeSeconds;
     this.calculator = new LatencyCalculator();
   }
 
   /**
-   * Thêm một SQL record vào bucket tương ứng với timestamp của nó.
-   *
-   * @param record SQL record đã được intercept
+   * Ghi nhận từng SQLRecord (legacy).
    */
   public void record(SQLRecord record) {
     if (record == null || record.getTimestamp() == null) return;
@@ -61,11 +44,30 @@ public class MetricsCollector {
   }
 
   /**
-   * Lấy tất cả time buckets với P99 latency của từng bucket,
-   * sắp xếp theo thời gian tăng dần.
+   * Ghi nhận từ aggregated QueryMetric.
+   * Mỗi metric tạo {@code callCount} entry trong bucket tương ứng với
+   * {@code lastSeenAt} — approximation để trend chart vẫn hoạt động khi
+   * không có per-call timestamp.
    *
-   * @return list các {@link BucketMetrics}, mỗi item là 1 data point trên trend chart
+   * @param sqlPattern    SQL pattern (chỉ để debug, không lưu)
+   * @param avgDurationMs duration trung bình
+   * @param lastSeenAt    epoch millis của lần cuối SQL được chạy
+   * @param callCount     số lần chạy
    */
+  public void recordSnapshot(String sqlPattern, double avgDurationMs,
+      long lastSeenAt, long callCount) {
+    if (lastSeenAt <= 0) return;
+    Instant timestamp = Instant.ofEpochMilli(lastSeenAt);
+    long bucketKey = toBucketKey(timestamp);
+    long duration = (long) avgDurationMs;
+
+    List<Long> bucket = buckets.computeIfAbsent(bucketKey, k -> new ArrayList<>());
+    // Add callCount entries với duration = avg
+    for (long i = 0; i < callCount; i++) {
+      bucket.add(duration);
+    }
+  }
+
   public List<BucketMetrics> getBucketMetrics() {
     return buckets.entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
@@ -79,16 +81,10 @@ public class MetricsCollector {
         .collect(Collectors.toList());
   }
 
-  /**
-   * Xóa toàn bộ dữ liệu — dùng khi reset session.
-   */
   public void clear() {
     buckets.clear();
   }
 
-  /**
-   * @return tổng số bucket hiện có
-   */
   public int getBucketCount() {
     return buckets.size();
   }
@@ -98,9 +94,6 @@ public class MetricsCollector {
     return (epochSeconds / bucketSizeSeconds) * bucketSizeSeconds;
   }
 
-  /**
-   * Metrics tổng hợp của một time bucket.
-   */
   public static class BucketMetrics {
     private final Instant bucketStart;
     private final long p50;
@@ -117,7 +110,6 @@ public class MetricsCollector {
       this.queryCount = queryCount;
     }
 
-    /** @return thời điểm bắt đầu của bucket */
     public Instant getBucketStart() { return bucketStart; }
     public long getP50() { return p50; }
     public long getP95() { return p95; }

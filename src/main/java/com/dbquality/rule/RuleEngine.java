@@ -43,7 +43,6 @@ public class RuleEngine {
     List<Finding> allFindings = new ArrayList<>();
 
     // Schema rules — dùng SQLContext rỗng vì các rule này chỉ dựa vào DDL
-    // (sau Phase 3, schema rules không thực sự cần SQLContext)
     for (Rule rule : schemaRules) {
       try {
         RuleResult result = rule.analyze(ddl, new com.dbquality.collector.SQLContext());
