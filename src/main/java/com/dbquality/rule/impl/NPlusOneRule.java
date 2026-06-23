@@ -15,27 +15,38 @@ import java.util.List;
 /**
  * Phát hiện N+1 query pattern dựa trên aggregated metrics.
  *
- * <p>Khác với version cũ (chỉ đếm count > threshold), rule này phân tích nhiều
- * chỉ số để phân loại N+1 chính xác hơn:</p>
+ * <p>Phân loại theo nhiều chỉ số (count + duration + variance):</p>
  *
  * <ul>
- *   <li><b>Count cao + duration ổn định (variance thấp) + avg duration thấp</b>
- *       → N+1 typical: query nhỏ lặp trong loop, đặc trưng của lazy loading</li>
+ *   <li><b>Count cao + duration ổn định + avg duration thấp</b>
+ *       → N+1 typical: query nhỏ lặp trong loop, đặc trưng lazy loading</li>
  *   <li><b>Count cao + avg duration cao</b>
- *       → N+1 nghiêm trọng: cần fix gấp vì tổng thời gian tốn nhiều</li>
+ *       → N+1 nghiêm trọng: cần fix gấp</li>
  *   <li><b>Count cao + variance cao</b>
- *       → có thể là cache miss/hit pattern, không hẳn N+1 — flag MEDIUM</li>
+ *       → có thể là cache miss/hit pattern</li>
  * </ul>
  *
- * <p>Severity dynamic theo total impact = count × avgDuration:</p>
+ * <p>Severity dựa trên cả số lần lặp VÀ total impact:</p>
  * <ul>
- *   <li>HIGH: total impact > 1000ms (tốn tổng > 1s)</li>
- *   <li>MEDIUM: còn lại</li>
+ *   <li>HIGH: callCount >= 50 lần HOẶC total impact > 1000ms</li>
+ *   <li>MEDIUM: callCount >= 20 lần HOẶC total impact > 200ms</li>
+ *   <li>WARNING: còn lại</li>
  * </ul>
  *
-
+ * <p>Lý do tách callCount khỏi total impact: DB modern thường nhanh
+ * (mỗi query &lt;1ms), nhưng pattern lặp 50-100 lần vẫn là N+1 nghiêm trọng
+ * cần fix — vì khi scale lên production với data lớn hơn, mỗi query sẽ chậm
+ * hơn và pattern lặp sẽ phóng đại vấn đề.</p>
  */
 public class NPlusOneRule implements MetricsBasedRule {
+
+  // Ngưỡng số lần lặp để phân loại N+1 — bất kể duration
+  private static final int CALL_COUNT_HIGH = 50;
+  private static final int CALL_COUNT_MEDIUM = 20;
+
+  // Ngưỡng total impact (ms) để phân loại theo thời gian
+  private static final long TOTAL_IMPACT_HIGH = 1000;
+  private static final long TOTAL_IMPACT_MEDIUM = 200;
 
   private final int threshold;
 
@@ -75,10 +86,6 @@ public class NPlusOneRule implements MetricsBasedRule {
     return new RuleResult(findings);
   }
 
-  /**
-   * Phân tích metrics để phân loại N+1 pattern.
-   * Trả về null nếu không phải N+1 (chỉ là query phổ biến).
-   */
   private NPlusOneAnalysis analyzePattern(QueryMetric metric) {
     long count = metric.getCallCount();
     double avgMs = metric.getAvgDurationMs();
@@ -86,7 +93,7 @@ public class NPlusOneRule implements MetricsBasedRule {
     long maxMs = metric.getMaxDurationMs();
     long totalImpactMs = (long) (count * avgMs);
 
-    // Variance ratio: max/min — nếu gần bằng 1 thì duration rất ổn định
+    // Variance ratio: max/min — gần 1 nghĩa là duration rất ổn định
     double varianceRatio = minMs == 0 ? 1.0 : (double) maxMs / minMs;
 
     // Trường hợp 1: query nặng lặp nhiều — N+1 nghiêm trọng
@@ -101,7 +108,7 @@ public class NPlusOneRule implements MetricsBasedRule {
 
     // Trường hợp 2: query nhỏ + ổn định → N+1 điển hình từ lazy loading
     if (varianceRatio < 5.0 && avgMs < 10) {
-      Severity sev = totalImpactMs > 1000 ? Severity.HIGH : Severity.MEDIUM;
+      Severity sev = determineSeverity(count, totalImpactMs);
       return new NPlusOneAnalysis(
           sev,
           "điển hình (lazy loading)",
@@ -110,12 +117,12 @@ public class NPlusOneRule implements MetricsBasedRule {
       );
     }
 
-    // Trường hợp 3: variance lớn → có thể là cache pattern, không hẳn N+1
+    // Trường hợp 3: variance lớn → có thể là cache pattern
     if (varianceRatio >= 5.0) {
-      // Chỉ flag nếu tổng impact đáng kể
-      if (totalImpactMs > 500) {
+      if (count >= CALL_COUNT_MEDIUM || totalImpactMs > 500) {
+        Severity sev = determineSeverity(count, totalImpactMs);
         return new NPlusOneAnalysis(
-            Severity.MEDIUM,
+            sev,
             "biến động (có thể do cache miss/hit)",
             "Duration biến động lớn — có thể do cache miss/hit pattern. "
                 + "Verify xem có phải N+1 thật sự không, hoặc cân nhắc warm cache"
@@ -124,10 +131,11 @@ public class NPlusOneRule implements MetricsBasedRule {
       return null;
     }
 
-    // Trường hợp 4: count > threshold nhưng impact thấp — vẫn flag nhưng MEDIUM
-    if (totalImpactMs > 100) {
+    // Trường hợp 4: count > threshold nhưng impact thấp
+    if (count >= CALL_COUNT_MEDIUM || totalImpactMs > 100) {
+      Severity sev = determineSeverity(count, totalImpactMs);
       return new NPlusOneAnalysis(
-          Severity.MEDIUM,
+          sev,
           "có dấu hiệu",
           "Query lặp nhiều lần. Cân nhắc batch fetch nếu các lần gọi "
               + "đều từ cùng một service method"
@@ -135,6 +143,20 @@ public class NPlusOneRule implements MetricsBasedRule {
     }
 
     return null;
+  }
+
+  /**
+   * Xác định severity dựa trên cả count và total impact.
+   * Lấy mức cao hơn của 2 tiêu chí.
+   */
+  private Severity determineSeverity(long count, long totalImpactMs) {
+    if (count >= CALL_COUNT_HIGH || totalImpactMs > TOTAL_IMPACT_HIGH) {
+      return Severity.HIGH;
+    }
+    if (count >= CALL_COUNT_MEDIUM || totalImpactMs > TOTAL_IMPACT_MEDIUM) {
+      return Severity.MEDIUM;
+    }
+    return Severity.WARNING;
   }
 
   private String buildMessage(QueryMetric metric, NPlusOneAnalysis analysis) {
