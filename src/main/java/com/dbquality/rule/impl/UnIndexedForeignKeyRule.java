@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Phát hiện các Foreign Key không có index — gây full scan khi JOIN.
  */
-public class UnindexedForeignKeyRule implements Rule {
+public class UnIndexedForeignKeyRule implements Rule {
 
   @Override
   public String getName() {

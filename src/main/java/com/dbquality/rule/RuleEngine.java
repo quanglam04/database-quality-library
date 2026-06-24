@@ -82,7 +82,7 @@ public class RuleEngine {
       int nPlusOneThreshold, ExplainCache explainCache) {
     RuleEngine engine = new RuleEngine()
         .register(new MissingPrimaryKeyRule())
-        .register(new UnindexedForeignKeyRule())
+        .register(new UnIndexedForeignKeyRule())
         .register(new NullableRiskRule())
         .register(new SuspiciousDataTypeRule());
 

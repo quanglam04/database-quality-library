@@ -1,6 +1,7 @@
 package com.dbquality.constant;
 
 import java.util.List;
+import java.util.Set;
 
 public class Constant {
 
@@ -171,7 +172,7 @@ public class Constant {
    * Group 1: tên bảng, group 2: alias.
    * <br>Ví dụ: {@code FROM employees e1_0} → group 1 = {@code employees}, group 2 = {@code e1_0}
    */
-  public static final String TABLE_ALIAS_PATTERN = "(?:FROM|JOIN)\\s+(\\w+)\\s+(?:AS\\s+)?(\\w+)";
+  public static final String TABLE_ALIAS_PATTERN = "(?:FROM|JOIN)\\s+(\\w+)(?:\\s+AS)?\\s+(\\w+)(?:\\s|,|$|\\()";
 
   /**
    * Extract tên bảng khi không có alias (theo sau là clause khác hoặc cuối câu).
@@ -187,5 +188,23 @@ public class Constant {
   public static final String SELECT_STAR_PATTERN = "(?i)SELECT\\s+\\*\\s+FROM";
 
   public static final String INDEX_NAME_PATTERN = "\"(?:key|Index Name|index_name)\"\\s*:\\s*\"([^\"]+)\"";
+
+  public static final String SQL_TOKEN_DELIMITER_PATTERN = "[\\s,;(]";
+
+  public static final String ROWS_PATTERN = "(?:đọc|read|examined)\\s+(\\d+)\\s+rows?";
+
+  public static final String COLUMN_IN_FILTER = "(?:WHERE|AND|OR|ON)\\s+(?:(\\w+)\\.)?(\\w+)\\s*(?:=|<>|!=|<|>|<=|>=|LIKE|IN|BETWEEN|IS)";
+
+
+  /**
+   * Check rule name có phải indicator của full scan / index not used không.
+   */
+  public static final Set<String> FULL_SCAN_RULE_NAMES = Set.of(
+      "FULL_TABLE_SCAN",
+      "FULL_INDEX_SCAN",
+      "INDEX_NOT_USED",
+      "TABLE_SCAN",
+      "SEQ_SCAN"
+  );
 
 }

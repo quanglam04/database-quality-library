@@ -9,7 +9,7 @@ import com.dbquality.constant.Severity;
  * Marker interface cho các rule đã migrate sang dùng {@link QueryMetricsStore}
  * thay vì {@link SQLContext}.
  *
- * <p>Trong giai đoạn migration (Phase 2-3), thư viện hỗ trợ cả 2 loại rule:</p>
+ * <p>Thư viện hỗ trợ cả 2 loại rule:</p>
  * <ul>
  *   <li>Rule cũ implement {@link Rule} — nhận {@code DDLContext + SQLContext}</li>
  *   <li>Rule mới implement {@link MetricsBasedRule} — nhận {@code DDLContext + QueryMetricsStore}</li>

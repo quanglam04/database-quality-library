@@ -97,7 +97,7 @@ public class ExplainCache {
     cache.clear();
   }
 
-  // ── Internal ─────────────────────────────────────────────
+  // Internal
 
   private ExplainParser getOrInitParser() {
     if (parser != null) return parser;

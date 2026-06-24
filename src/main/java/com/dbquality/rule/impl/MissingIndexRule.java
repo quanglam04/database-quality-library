@@ -5,6 +5,7 @@ import com.dbquality.collector.QueryMetric;
 import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
 import com.dbquality.explain.ExplainCache;
@@ -33,15 +34,12 @@ import java.util.regex.Pattern;
  *   <li>Cross-check với DDL: cột nào chưa có index → đề xuất tạo</li>
  * </ol>
  *
- * <p>Khác với MissingIndexSuggestionRule cũ (chỉ đếm tần suất cột trong WHERE),
- * rule này confirm bằng EXPLAIN — chỉ đề xuất khi query thực sự bị full scan,
- * loại bỏ false positive khi DB engine đã chọn index khác phù hợp hơn.</p>
  */
 public class MissingIndexRule implements MetricsBasedRule {
 
   // Match cột trong WHERE/AND/OR/ON — cả simple và qualified (alias.col)
   private static final Pattern COLUMN_IN_FILTER = Pattern.compile(
-      "(?:WHERE|AND|OR|ON)\\s+(?:(\\w+)\\.)?(\\w+)\\s*(?:=|<>|!=|<|>|<=|>=|LIKE|IN|BETWEEN|IS)",
+      Constant.COLUMN_IN_FILTER,
       Pattern.CASE_INSENSITIVE
   );
 
@@ -72,7 +70,8 @@ public class MissingIndexRule implements MetricsBasedRule {
 
       ExplainResult explain = explainOpt.get();
       boolean hasFullScan = explain.getFindings().stream()
-          .anyMatch(f -> isFullScanIndicator(f.getRule()));
+          .anyMatch(f -> f.getRule() != null
+              && Constant.FULL_SCAN_RULE_NAMES.stream().anyMatch(f.getRule()::contains));
       if (!hasFullScan) continue;
 
       // Query này bị full scan — phân tích các cột trong WHERE
@@ -125,16 +124,6 @@ public class MissingIndexRule implements MetricsBasedRule {
   private Severity determineSeverity(QueryMetric metric) {
     long totalImpact = metric.getCallCount() * (long) metric.getAvgDurationMs();
     return totalImpact > 5000 ? Severity.HIGH : Severity.MEDIUM;
-  }
-
-  /**
-   * Check rule name có phải indicator của full scan / index not used không.
-   */
-  private boolean isFullScanIndicator(String ruleName) {
-    if (ruleName == null) return false;
-    return ruleName.contains("FULL_TABLE_SCAN")
-        || ruleName.contains("INDEX_NOT_USED")
-        || ruleName.contains("FULL_INDEX_SCAN");
   }
 
   /**

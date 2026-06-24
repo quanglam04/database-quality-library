@@ -1,5 +1,6 @@
 package com.dbquality.collector;
 
+import com.dbquality.constant.Constant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -90,7 +91,6 @@ public class SQLCollector {
   }
 
   //  Helper
-
   private List<String> extractTableNames(String sql) {
     List<String> tables = new ArrayList<>();
     if (sql == null) return tables;
@@ -102,7 +102,7 @@ public class SQLCollector {
       int idx = upper.indexOf(keyword);
       while (idx >= 0) {
         String rest = sql.substring(idx + keyword.length()).trim();
-        String[] parts = rest.split("[\\s,;(]");
+        String[] parts = rest.split(Constant.SQL_TOKEN_DELIMITER_PATTERN);
         if (parts.length > 0 && !parts[0].isEmpty()) {
           tables.add(parts[0]);
         }

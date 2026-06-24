@@ -17,9 +17,6 @@ import java.util.List;
  *   <li>ScheduledAnalysisJob update mỗi lần chạy</li>
  *   <li>API endpoint chỉ đọc, không modify</li>
  * </ul>
- *
- * <p>Thread-safe: dùng volatile cho reference assignment,
- * findings list được wrap unmodifiable trước khi expose.</p>
  */
 public class AnalysisResultStore {
 

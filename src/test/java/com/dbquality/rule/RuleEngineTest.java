@@ -133,7 +133,7 @@ class RuleEngineTest {
     QueryMetricsStore emptyStore = new QueryMetricsStore();
 
     RuleEngine engine = new RuleEngine()
-        .register(new UnindexedForeignKeyRule());
+        .register(new UnIndexedForeignKeyRule());
 
     List<Finding> findings = engine.analyze(ddl, emptyStore);
 

@@ -59,6 +59,7 @@ public class NPlusOneRule implements MetricsBasedRule {
     return RuleName.NPlusOne;
   }
 
+  /** Severity tối đa rule có thể tạo ra. Severity thực tế tính động theo metrics. */
   @Override
   public Severity getSeverity() {
     return Severity.HIGH;
@@ -96,7 +97,7 @@ public class NPlusOneRule implements MetricsBasedRule {
     // Variance ratio: max/min — gần 1 nghĩa là duration rất ổn định
     double varianceRatio = minMs == 0 ? 1.0 : (double) maxMs / minMs;
 
-    // Trường hợp 1: query nặng lặp nhiều — N+1 nghiêm trọng
+    // Trường hợp 1: query nặng lặp nhiều
     if (avgMs >= 50) {
       return new NPlusOneAnalysis(
           Severity.HIGH,
