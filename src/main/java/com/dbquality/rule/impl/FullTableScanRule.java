@@ -4,6 +4,7 @@ import com.dbquality.collector.DDLContext;
 import com.dbquality.collector.QueryMetric;
 import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.collector.model.Table;
+import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
 import com.dbquality.constant.Severity;
 import com.dbquality.explain.ExplainCache;
@@ -12,6 +13,7 @@ import com.dbquality.rule.Finding;
 import com.dbquality.rule.MetricsBasedRule;
 import com.dbquality.rule.RuleResult;
 
+import com.dbquality.util.SQLFilter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,13 +43,13 @@ public class FullTableScanRule implements MetricsBasedRule {
   // Pattern match "FROM tableName aliasName" hoặc "FROM tableName AS aliasName"
   // Cũng match JOIN tableName aliasName
   private static final Pattern TABLE_ALIAS_PATTERN = Pattern.compile(
-      "(?:FROM|JOIN)\\s+(\\w+)(?:\\s+AS)?\\s+(\\w+)(?:\\s|,|$|\\()",
+      Constant.TABLE_ALIAS_PATTERN,
       Pattern.CASE_INSENSITIVE
   );
 
   // Extract rows count từ message của EXPLAIN finding (vd "đọc 508 rows")
   private static final Pattern ROWS_PATTERN = Pattern.compile(
-      "(?:đọc|read|examined)\\s+(\\d+)\\s+rows?",
+      Constant.ROWS_PATTERN,
       Pattern.CASE_INSENSITIVE
   );
 
@@ -129,7 +131,7 @@ public class FullTableScanRule implements MetricsBasedRule {
 
       // Chỉ map khi tableName là bảng thật trong DDL
       // (tránh nhầm với SQL keywords như WHERE, ORDER...)
-      if (realTables.contains(tableName) && !isSQLKeyword(alias)) {
+      if (realTables.contains(tableName) && !SQLFilter.isSQLKeyword(alias)) {
         aliasMap.put(alias, tableName);
       }
     }
@@ -199,16 +201,4 @@ public class FullTableScanRule implements MetricsBasedRule {
         + ", avg " + String.format("%.1f", metric.getAvgDurationMs()) + "ms)";
   }
 
-  private boolean isSQLKeyword(String word) {
-    if (word == null) return true;
-    String upper = word.toUpperCase();
-    return upper.equals("WHERE") || upper.equals("ORDER")
-        || upper.equals("GROUP") || upper.equals("HAVING")
-        || upper.equals("LIMIT") || upper.equals("ON")
-        || upper.equals("AS") || upper.equals("LEFT")
-        || upper.equals("RIGHT") || upper.equals("INNER")
-        || upper.equals("OUTER") || upper.equals("FULL")
-        || upper.equals("UNION") || upper.equals("SELECT")
-        || upper.equals("FROM") || upper.equals("JOIN");
-  }
 }

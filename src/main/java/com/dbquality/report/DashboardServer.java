@@ -21,7 +21,6 @@ import java.util.function.Supplier;
 /**
  * Embedded HTTP dashboard server.
  *
- * <p>Sau Phase 3 refactor:</p>
  * <ul>
  *   <li>Realtime endpoints (/metrics, /collected-queries) đọc từ {@link QueryMetricsStore} — nhẹ, gọi mỗi 5s</li>
  *   <li>Analysis endpoints (/report, /findings) đọc từ {@link AnalysisResultStore} — cache scheduled</li>
@@ -296,7 +295,7 @@ public class DashboardServer {
   // Trigger handlers
 
   /**
-   * Trigger analysis ngay — không đợi schedule.
+   * Trigger analysis ngay.
    * Cho nút "Run Analysis Now" trên dashboard.
    */
   private void handleAnalyzeNow(HttpExchange exchange) throws IOException {

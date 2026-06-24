@@ -99,7 +99,7 @@ public class ScheduledAnalysisJob {
   }
 
   /**
-   * Trigger analysis ngay lập tức — không đợi schedule tiếp theo.
+   * Trigger analysis ngay lập tức.
    * Dùng cho endpoint POST /analyze-now hoặc nút "Run Analysis Now"
    * trên dashboard.
    */

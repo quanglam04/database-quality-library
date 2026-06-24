@@ -1,6 +1,5 @@
 package com.dbquality.collector;
 
-import java.util.Map;
 
 /**
  * Thông tin tổng hợp về project và môi trường runtime.
