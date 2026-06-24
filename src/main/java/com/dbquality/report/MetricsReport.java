@@ -11,7 +11,6 @@ public class MetricsReport {
 
   private int totalSQLIntercepted;
   private int slowQueryCount;
-  @JsonProperty("nPlusOneDetected")
   private int nPlusOneDetected;
   private long p50Latency;
   private long p95Latency;
@@ -41,7 +40,10 @@ public class MetricsReport {
 
   public int getTotalSQLIntercepted() { return totalSQLIntercepted; }
   public int getSlowQueryCount() { return slowQueryCount; }
+
+  @JsonProperty("nPlusOneDetected")
   public int getNPlusOneDetected() { return nPlusOneDetected; }
+
   public long getP50Latency() { return p50Latency; }
   public long getP95Latency() { return p95Latency; }
   public long getP99Latency() { return p99Latency; }

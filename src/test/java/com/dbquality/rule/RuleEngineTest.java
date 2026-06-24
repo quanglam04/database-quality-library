@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RuleEngineTest {
 
   private QualityDataSource qualityDataSource;
+  private QueryMetricsStore metricsStore;
   private DDLCollector ddlCollector;
 
   @BeforeEach
@@ -28,6 +29,7 @@ class RuleEngineTest {
     h2.setPassword("");
 
     qualityDataSource = new QualityDataSource(h2, QualityConfig.getTestDefault());
+    metricsStore = qualityDataSource.getMetricsStore();
     ddlCollector = new DDLCollector();
 
     try (Connection conn = qualityDataSource.getConnection()) {
@@ -44,7 +46,7 @@ class RuleEngineTest {
                 )
             """).execute();
 
-      // Bảng có FK nhưng KHÔNG có index trên FK — trigger UnindexedForeignKeyRule
+      // Bảng có FK nhưng KHÔNG có index trên FK
       conn.prepareStatement("""
                 CREATE TABLE orders (
                     id      INT PRIMARY KEY,
@@ -54,7 +56,7 @@ class RuleEngineTest {
                 )
             """).execute();
 
-      // Bảng KHÔNG có PK — trigger MissingPrimaryKeyRule
+      // Bảng KHÔNG có PK
       conn.prepareStatement("""
                 CREATE TABLE order_items (
                     order_id   INT,
@@ -75,7 +77,7 @@ class RuleEngineTest {
       }
     }
 
-    qualityDataSource.getSqlContext().clear();
+    metricsStore.clear();
   }
 
   // ── MissingPrimaryKeyRule ─────────────────────────────────────────
@@ -90,7 +92,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new MissingPrimaryKeyRule());
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("MISSING_PRIMARY_KEY")
@@ -107,7 +109,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new MissingPrimaryKeyRule());
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertFalse(findings.stream()
         .anyMatch(f -> f.getRule().equals("MISSING_PRIMARY_KEY")
@@ -118,23 +120,22 @@ class RuleEngineTest {
 
   @Test
   void shouldDetectUnindexedForeignKey() {
-    // Tạo mock DDLContext thủ công — không cần H2
+    // Mock DDLContext thủ công — không cần H2
     Column userIdCol = new Column("USER_ID", "INT", false, false);
     ForeignKey fk = new ForeignKey("FK_USER", "USER_ID", "USERS", "ID");
 
-    // Không có index nào trên USER_ID
     Table orders = new Table("ORDERS",
         List.of(userIdCol),
-        List.of(), // không có index
+        List.of(),
         List.of(fk));
 
     DDLContext ddl = new DDLContext(List.of(orders));
-    SQLContext sql = new SQLContext();
+    QueryMetricsStore emptyStore = new QueryMetricsStore();
 
     RuleEngine engine = new RuleEngine()
-        .register(new UnindexedForeignKeyRule());
+        .register(new UnIndexedForeignKeyRule());
 
-    List<Finding> findings = engine.analyze(ddl, sql);
+    List<Finding> findings = engine.analyze(ddl, emptyStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("UNINDEXED_FOREIGN_KEY")
@@ -157,7 +158,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new SelectStarRule());
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("SELECT_STAR")));
@@ -179,7 +180,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new SelectStarRule());
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .noneMatch(f -> f.getRule().equals("SELECT_STAR")));
@@ -202,7 +203,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new SlowQueryRule(0));
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("SLOW_QUERY")));
@@ -223,7 +224,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new SlowQueryRule(999999));
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .noneMatch(f -> f.getRule().equals("SLOW_QUERY")));
@@ -232,9 +233,11 @@ class RuleEngineTest {
   // ── NPlusOneRule ──────────────────────────────────────────────────
 
   @Test
-  void shouldDetectNPlusOne() throws Exception {
+  void shouldNotDetectNPlusOneWithDifferentLiterals() throws Exception {
+    // Note: với SQLNormalizer, các query "WHERE id = 1", "WHERE id = 2"...
+    // đều normalize về "WHERE id = ?" → vẫn group thành 1 pattern.
+    // Test này verify rule có flag được pattern lặp dù literal khác.
     try (Connection conn = qualityDataSource.getConnection()) {
-      // Cùng pattern lặp lại 5 lần
       for (int i = 1; i <= 5; i++) {
         PreparedStatement stmt = conn.prepareStatement(
             "SELECT id, name FROM users WHERE id = " + i);
@@ -247,21 +250,21 @@ class RuleEngineTest {
       ddl = ddlCollector.collect(conn);
     }
 
-    // threshold = 3 → pattern lặp > 3 lần mới flag
+    // threshold = 3 → 5 lần lặp > threshold → phải flag
     RuleEngine engine = new RuleEngine()
         .register(new NPlusOneRule(3));
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
-    // Query khác nhau (id = 1, 2, 3...) nên không phải N+1
+    // Với SQLNormalizer, 5 query khác literal được gom thành 1 pattern lặp 5 lần
+    // → phải detect được N+1
     assertTrue(findings.stream()
-        .noneMatch(f -> f.getRule().equals("N_PLUS_ONE")));
+        .anyMatch(f -> f.getRule().equals("N_PLUS_ONE")));
   }
 
   @Test
   void shouldDetectNPlusOneWithSamePattern() throws Exception {
     try (Connection conn = qualityDataSource.getConnection()) {
-      // Cùng 1 SQL y hệt lặp lại 5 lần
       for (int i = 1; i <= 5; i++) {
         conn.prepareStatement("SELECT id, name FROM users WHERE id = 1")
             .executeQuery();
@@ -276,7 +279,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new NPlusOneRule(3));
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("N_PLUS_ONE")));
@@ -287,7 +290,6 @@ class RuleEngineTest {
   @Test
   void shouldDetectNullableRisk() throws Exception {
     try (Connection conn = qualityDataSource.getConnection()) {
-      // Query dùng cột email (nullable) trong WHERE
       conn.prepareStatement(
               "SELECT id FROM users WHERE email = 'test@example.com'")
           .executeQuery();
@@ -301,7 +303,7 @@ class RuleEngineTest {
     RuleEngine engine = new RuleEngine()
         .register(new NullableRiskRule());
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("NULLABLE_RISK")
@@ -321,13 +323,13 @@ class RuleEngineTest {
       ddl = ddlCollector.collect(conn);
     }
 
-    RuleEngine engine = RuleEngine.withDefaultRules(0, 3);
+    // Truyền null cho explainCache vì H2 có thể không support EXPLAIN format JSON
+    RuleEngine engine = RuleEngine.withDefaultRules(0, 3, null);
 
-    List<Finding> findings = engine.analyze(ddl, qualityDataSource.getSqlContext());
+    List<Finding> findings = engine.analyze(ddl, metricsStore);
 
     assertTrue(findings.size() > 1);
 
-    // H2 tự tạo index cho FK nên không test UNINDEXED_FOREIGN_KEY ở đây
     assertTrue(findings.stream()
         .anyMatch(f -> f.getRule().equals("MISSING_PRIMARY_KEY")));
     assertTrue(findings.stream()

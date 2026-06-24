@@ -4,20 +4,18 @@ import com.dbquality.ai.LLMProvider;
 import com.dbquality.ai.LLMProviderFactory;
 import com.dbquality.collector.DDLCollector;
 import com.dbquality.collector.DDLContext;
-import com.dbquality.collector.SQLContext;
-import com.dbquality.collector.SQLRecord;
+import com.dbquality.collector.QueryMetric;
+import com.dbquality.collector.QueryMetricsStore;
 import com.dbquality.config.QualityConfig;
 import com.dbquality.constant.Constant;
 import com.dbquality.constant.Constant.RuleName;
+import com.dbquality.constant.Severity;
+import com.dbquality.explain.ExplainCache;
+import com.dbquality.explain.ExplainResult;
 import com.dbquality.rule.Finding;
 import com.dbquality.rule.RuleEngine;
-import com.dbquality.constant.Severity;
-
-import com.dbquality.explain.ExplainParser;
-import com.dbquality.explain.ExplainParserFactory;
-import com.dbquality.explain.ExplainResult;
-
 import com.dbquality.util.SQLFilter;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -27,52 +25,63 @@ import java.util.stream.Collectors;
 
 /**
  * Tổng hợp toàn bộ dữ liệu thu thập được thành QualityReport.
- * Bao gồm findings từ rule engine, metrics, scoring tổng thể.
+ *
+ * <p>Sau Phase 3 refactor:</p>
+ * <ul>
+ *   <li>Input là {@link QueryMetricsStore} (aggregated) thay vì SQLContext</li>
+ *   <li>EXPLAIN cho slow queries lấy từ {@link ExplainCache} (đã cache sẵn)</li>
+ *   <li>Rule engine chạy qua scheduled job, ReportBuilder chỉ format output</li>
+ * </ul>
  */
 public class ReportBuilder {
 
   private final QualityConfig config;
   private final DDLCollector ddlCollector;
   private final RuleEngine ruleEngine;
+  private final ExplainCache explainCache;
   private final LLMProvider llmProvider;
   private volatile String cachedAiInsights = null;
   private volatile boolean aiCallInProgress = false;
 
-  public ReportBuilder(QualityConfig config) {
+  public ReportBuilder(QualityConfig config, ExplainCache explainCache) {
     this.config = config;
     this.ddlCollector = new DDLCollector();
+    this.explainCache = explainCache;
     this.ruleEngine = RuleEngine.withDefaultRules(
         config.getSlowQueryThresholdMs(),
-        config.getNPlusOneThreshold()
+        config.getNPlusOneThreshold(),
+        explainCache
     );
     this.llmProvider = LLMProviderFactory.create(config);
   }
 
+  // Constructor backward compat — không có ExplainCache
+  public ReportBuilder(QualityConfig config) {
+    this(config, null);
+  }
+
   /**
-   * Build report đầy đủ từ connection và SQL context hiện tại.
-   *
-   * @param connection JDBC connection để thu thập DDL
-   * @param sqlContext SQL records đã được thu thập
-   * @return QualityReport đầy đủ
+   * Build report từ connection và metrics store.
    */
-  public QualityReport build(Connection connection, SQLContext sqlContext)
+  public QualityReport build(Connection connection, QueryMetricsStore metricsStore)
       throws SQLException {
 
     // Thu thập DDL
     DDLContext ddlContext = ddlCollector.collect(connection);
 
     // Chạy rule engine
-    List<Finding> findings = ruleEngine.analyze(ddlContext, sqlContext);
+    List<Finding> findings = ruleEngine.analyze(ddlContext, metricsStore);
 
     // Tính metrics
-    MetricsReport metrics = buildMetrics(sqlContext, findings);
+    MetricsReport metrics = buildMetrics(metricsStore, findings);
 
     // Tính score
     int score = calculateScore(findings);
 
     // Build AI-ready context
-    String aiContext = buildAIContext(ddlContext, sqlContext, findings, metrics);
-    boolean hasEnoughData = !findings.isEmpty() || !sqlContext.getRecords().isEmpty();
+    String aiContext = buildAIContext(ddlContext, metricsStore, findings, metrics);
+    boolean hasEnoughData = !findings.isEmpty()
+        || metricsStore.getUniquePatternCount() > 0;
     if (llmProvider != null && llmProvider.isAvailable()
         && cachedAiInsights == null
         && !aiCallInProgress
@@ -81,7 +90,8 @@ public class ReportBuilder {
       final String aiContextFinal = aiContext;
       new Thread(() -> {
         try {
-          System.out.println("[DB Quality] Calling " + llmProvider.getProviderName() + "...");
+          System.out.println("[DB Quality] Calling "
+              + llmProvider.getProviderName() + "...");
           cachedAiInsights = llmProvider.call(aiContextFinal);
           System.out.println("[DB Quality] AI analysis complete.");
         } finally {
@@ -98,22 +108,18 @@ public class ReportBuilder {
         .reportGeneratedAt(Instant.now())
         .overallScore(score)
         .ddlFindings(findings.stream()
-            .filter(f -> isDDLFinding(f))
+            .filter(this::isDDLFinding)
             .collect(Collectors.toList()))
         .sqlFindings(findings.stream()
             .filter(f -> !isDDLFinding(f))
             .collect(Collectors.toList()))
-        .slowQueries(buildSlowQueryReports(connection, sqlContext))
+        .slowQueries(buildSlowQueryReports(metricsStore))
         .metrics(metrics)
         .aiReadyContext(aiContext)
         .aiInsights(aiInsights)
         .build();
   }
 
-  /**
-   * Reset cache AI để trigger gọi lại LLM ở lần build() tiếp theo.
-   * Được gọi khi người dùng bấm nút "Refresh AI" trên dashboard.
-   */
   public void resetAiCache() {
     if (!aiCallInProgress) {
       cachedAiInsights = null;
@@ -122,40 +128,52 @@ public class ReportBuilder {
 
   //  Metrics
 
-  private MetricsReport buildMetrics(SQLContext sqlContext, List<Finding> findings) {
-    List<Long> times = sqlContext.getRecords().stream()
-        .map(r -> r.getExecutionTime())
-        .sorted()
-        .collect(Collectors.toList());
+  private MetricsReport buildMetrics(QueryMetricsStore metricsStore,
+      List<Finding> findings) {
+
+    // Tổng số lần SQL được thực thi (tính cả lặp lại)
+    long total = metricsStore.getTotalExecutions();
+
+    // Tính P50/P95/P99 từ duration của TỪNG LẦN thực thi
+    // Approximation: với mỗi metric, duration ~ uniform trong [min, max]
+    // → expand thành callCount điểm theo avg để đủ data percentile
+    List<Long> times = new ArrayList<>();
+    for (QueryMetric m : metricsStore.getAllMetrics()) {
+      long avg = (long) m.getAvgDurationMs();
+      for (long i = 0; i < m.getCallCount(); i++) {
+        times.add(avg);
+      }
+    }
+    Collections.sort(times);
 
     long p50 = percentile(times, 50);
     long p95 = percentile(times, 95);
     long p99 = percentile(times, 99);
 
-    int total = sqlContext.getRecords().size();
-    int failed = (int) sqlContext.getRecords().stream()
-        .filter(r -> !r.isSuccess()).count();
-    int slow = (int) sqlContext.getRecords().stream()
-        .filter(r -> r.getExecutionTime() >= config.getSlowQueryThresholdMs()).count();
-    int nPlusOne = (int) sqlContext.getRecords().stream()
-        .filter(r -> SQLFilter.isDMLStatement(r.getSql()))
-        .collect(Collectors.groupingBy(SQLRecord::getSql))
-        .entrySet().stream()
-        .filter(e -> e.getValue().size() > config.getNPlusOneThreshold())
+    // Slow query count: số pattern có max duration vượt threshold
+    int slow = (int) metricsStore.getAllMetrics().stream()
+        .filter(m -> m.getMaxDurationMs() >= config.getSlowQueryThresholdMs())
         .count();
 
+    // N+1 count: số pattern có callCount > threshold
+    int nPlusOne = (int) metricsStore.getAllMetrics().stream()
+        .filter(m -> SQLFilter.isDMLStatement(m.getSqlPattern()))
+        .filter(m -> m.getCallCount() > config.getNPlusOneThreshold())
+        .count();
 
-    double errorRate = total > 0 ? (double) failed / total * 100 : 0;
+    // Error rate: QueryMetricsStore không track failed executions
+    // (Phase 1 quyết định chỉ record success vào metrics).
+    // Tạm thời set 0, có thể extend QueryMetric thêm failedCount nếu cần.
+    double errorRate = 0;
 
     // Top tables by query frequency
-    Map<String, Long> tableFrequency = sqlContext.getRecords().stream()
-        .flatMap(r -> extractTableNames(r.getSql()).stream())
-        .collect(Collectors.groupingBy(
-            t -> t.toUpperCase(),
-            Collectors.counting()
-        ));
+    Map<String, Long> tableFrequency = new HashMap<>();
+    for (QueryMetric m : metricsStore.getAllMetrics()) {
+      for (String table : extractTableNames(m.getSqlPattern())) {
+        tableFrequency.merge(table.toUpperCase(), m.getCallCount(), Long::sum);
+      }
+    }
 
-    // Convert Long -> Integer cho MetricsReport
     Map<String, Integer> topTables = tableFrequency.entrySet().stream()
         .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
         .limit(10)
@@ -167,7 +185,7 @@ public class ReportBuilder {
         ));
 
     return MetricsReport.builder()
-        .totalSQLIntercepted(total)
+        .totalSQLIntercepted((int) total)
         .slowQueryCount(slow)
         .nPlusOneDetected(nPlusOne)
         .p50Latency(p50)
@@ -179,14 +197,9 @@ public class ReportBuilder {
   }
 
   //  Scoring
-  /**
-   * Tính điểm chất lượng tổng thể từ 0-100.
-   * Mỗi finding trừ điểm theo severity.
-   *
-   */
+
   private int calculateScore(List<Finding> findings) {
     if (findings.isEmpty()) return 100;
-
     int deduction = 0;
     for (Severity severity : Severity.values()) {
       long count = findings.stream()
@@ -198,11 +211,11 @@ public class ReportBuilder {
   }
 
   //  AI context
-  private String buildAIContext(DDLContext ddl, SQLContext sql,
+
+  private String buildAIContext(DDLContext ddl, QueryMetricsStore metricsStore,
       List<Finding> findings, MetricsReport metrics) {
     StringBuilder sb = new StringBuilder();
 
-    // Prompt
     sb.append("Bạn là chuyên gia database và performance optimization cho hệ thống Java/Spring Boot.\n");
     sb.append("Dựa trên báo cáo chất lượng database dưới đây, hãy:\n");
     sb.append("1. Phân tích các vấn đề nghiêm trọng nhất và giải thích tại sao chúng nguy hiểm\n");
@@ -240,17 +253,20 @@ public class ReportBuilder {
             .append(f.getRule()).append(": ").append(f.getMessage()).append("\n"));
 
     sb.append("\n## TOP SLOW QUERIES\n");
-    sql.getRecords().stream()
-        .sorted((a, b) -> Long.compare(b.getExecutionTime(), a.getExecutionTime()))
+    metricsStore.getAllMetrics().stream()
+        .sorted((a, b) -> Long.compare(b.getMaxDurationMs(), a.getMaxDurationMs()))
         .limit(5)
-        .forEach(r -> sb.append("- ").append(r.getExecutionTime())
-            .append("ms: ").append(r.getSql()).append("\n")
-            .append("  Called from: ").append(r.getCalledFrom()).append("\n"));
+        .forEach(m -> sb.append("- max ").append(m.getMaxDurationMs())
+            .append("ms, avg ").append(String.format("%.1f", m.getAvgDurationMs()))
+            .append("ms, count ").append(m.getCallCount())
+            .append(": ").append(m.getSqlPattern()).append("\n")
+            .append("  Called from: ").append(m.getMostFrequentCalledFrom()).append("\n"));
 
     return sb.toString();
   }
 
   //  Helpers
+
   private long percentile(List<Long> sorted, int percentile) {
     if (sorted.isEmpty()) return 0;
     int index = (int) Math.ceil(percentile / 100.0 * sorted.size()) - 1;
@@ -270,10 +286,7 @@ public class ReportBuilder {
     List<String> tables = new ArrayList<>();
     if (sql == null) return tables;
 
-    // Regex tìm table name sau FROM/JOIN/INTO/UPDATE
-    // Word boundary \b đảm bảo không match partial word
-    // Loại bỏ subquery. không lấy nếu sau keyword là dấu (
-    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+    Pattern pattern = Pattern.compile(
         Constant.SQL_TABLE_NAME_PATTERN,
         Pattern.CASE_INSENSITIVE
     );
@@ -281,7 +294,6 @@ public class ReportBuilder {
     java.util.regex.Matcher matcher = pattern.matcher(sql);
     while (matcher.find()) {
       String tableName = matcher.group(1);
-      // Bỏ qua SQL keywords bị nhận nhầm thành table name
       if (!SQLFilter.isSQLKeyword(tableName)) {
         tables.add(tableName);
       }
@@ -289,88 +301,42 @@ public class ReportBuilder {
     return tables;
   }
 
-  private List<SlowQueryReport> buildSlowQueryReports(Connection connection,
-      SQLContext sqlContext) {
-
-    // Lấy top 10 slow queries
-    List<SQLRecord> topSlow = sqlContext.getRecords().stream()
-        .filter(r -> r.getExecutionTime() >= config.getSlowQueryThresholdMs())
-        .sorted((a, b) -> Long.compare(b.getExecutionTime(), a.getExecutionTime()))
+  /**
+   * Build slow query reports từ metrics store + ExplainCache.
+   * Không chạy EXPLAIN mới — chỉ đọc từ cache đã được warm-up
+   * bởi ScheduledAnalysisJob.
+   */
+  private List<SlowQueryReport> buildSlowQueryReports(QueryMetricsStore metricsStore) {
+    List<QueryMetric> topSlow = metricsStore.getAllMetrics().stream()
+        .filter(m -> m.getMaxDurationMs() >= config.getSlowQueryThresholdMs())
+        .sorted((a, b) -> Long.compare(b.getMaxDurationMs(), a.getMaxDurationMs()))
         .limit(10)
         .collect(Collectors.toList());
 
     if (topSlow.isEmpty()) return List.of();
 
-    // Tạo ExplainParser phù hợp với DB hiện tại
-    ExplainParser explainParser = null;
-    String dbProduct = null;
-    try {
-      dbProduct = connection.getMetaData().getDatabaseProductName();
-      explainParser = ExplainParserFactory.create(dbProduct);
-    } catch (Exception ignored) {}
-
     List<SlowQueryReport> result = new ArrayList<>();
-    for (SQLRecord record : topSlow) {
-      ExplainResult explainResult = runExplain(connection, record.getSql(),
-          explainParser, record.getParameters(), dbProduct);
-      result.add(new SlowQueryReport(record, explainResult));
+    for (QueryMetric metric : topSlow) {
+      ExplainResult explain = null;
+      if (explainCache != null) {
+        explain = explainCache.getOrCompute(metric.getSqlPattern()).orElse(null);
+      }
+      result.add(buildSlowQueryReport(metric, explain));
     }
     return result;
   }
 
-  private ExplainResult runExplain(Connection connection, String sql,
-      ExplainParser explainParser, Map<Integer, Object> parameters,
-      String dbProduct) {
-
-    if (explainParser == null || sql == null) return null;
-
-    String upper = sql.trim().toUpperCase();
-    if (!upper.startsWith("SELECT") && !upper.startsWith("INSERT")
-        && !upper.startsWith("UPDATE") && !upper.startsWith("DELETE")) {
-      return null;
-    }
-
-    try {
-      String explainSql = buildExplainSql(dbProduct, sql);
-      java.sql.PreparedStatement ps = connection.prepareStatement(explainSql);
-      java.sql.ParameterMetaData pmd = ps.getParameterMetaData();
-
-      for (int i = 1; i <= pmd.getParameterCount(); i++) {
-        Object val = parameters != null ? parameters.get(i) : null;
-        if (val == null) {
-          ps.setNull(i, java.sql.Types.VARCHAR); // fallback hợp lý hơn NULL type
-        } else {
-          ps.setObject(i, val);
-        }
-      }
-
-      java.sql.ResultSet rs = ps.executeQuery();
-      if (rs.next()) {
-        ExplainResult result = explainParser.parse(rs.getString(1));
-        rs.close();
-        ps.close();
-        return result;
-      }
-      rs.close();
-      ps.close();
-    } catch (Exception e) {
-      System.out.println("[DB Quality] EXPLAIN failed for query: " + e.getMessage());
-    }
-    return null;
-  }
-
-  private String buildExplainSql(String dbProduct, String sql) {
-    if (dbProduct == null) return "EXPLAIN FORMAT=JSON " + sql;
-    String upper = dbProduct.toUpperCase();
-
-    if (upper.contains("POSTGRESQL")) {
-      // ANALYZE để có Actual Rows thực tế — cần thiết cho PostgreSQL parser
-      return "EXPLAIN (FORMAT JSON, ANALYZE) " + sql;
-    }
-    if (upper.contains("MYSQL") || upper.contains("MARIADB")) {
-      return "EXPLAIN FORMAT=JSON " + sql;
-    }
-    // Fallback — thử cú pháp MySQL, nếu không hỗ trợ sẽ bị catch
-    return "EXPLAIN FORMAT=JSON " + sql;
+  /**
+   * Adapter: tạo SlowQueryReport từ QueryMetric.
+   * SlowQueryReport hiện tại nhận SQLRecord — cần tạo SQLRecord giả từ metric.
+   */
+  private SlowQueryReport buildSlowQueryReport(QueryMetric metric, ExplainResult explain) {
+    com.dbquality.collector.SQLRecord record = com.dbquality.collector.SQLRecord.builder()
+        .sql(metric.getSqlPattern())
+        .executionTime(metric.getMaxDurationMs())
+        .calledFrom(metric.getMostFrequentCalledFrom())
+        .success(true)
+        .build();
+    return new SlowQueryReport(record, explain);
   }
 }

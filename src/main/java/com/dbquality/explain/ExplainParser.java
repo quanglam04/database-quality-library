@@ -1,8 +1,6 @@
 package com.dbquality.explain;
 
 /**
- * Tác giả: Trinh Quang Lam <br>
- * Tạo lúc: 25/05/2026 <br><br>
  * Phân tích kết quả EXPLAIN từ một nhà cung cấp cơ sở dữ liệu cụ thể.<br>
  * Mỗi cơ sở dữ liệu có một định dạng EXPLAIN khác nhau, vì vậy mỗi nhà cung cấp cần một parser riêng.<br>
  * Nếu không có parser nào hỗ trợ cơ sở dữ liệu hiện tại, việc phân tích Execution Plan sẽ được bỏ qua một cách âm thầm.<br>
