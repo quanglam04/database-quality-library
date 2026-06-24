@@ -5,7 +5,7 @@
 [![](https://jitpack.io/v/quanglam04/database-quality-library.svg)](https://jitpack.io/#quanglam04/database-quality-library)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> Thư viện Java phân tích chất lượng tương tác giữa ứng dụng và database tại runtime 
+> Thư viện Java phân tích chất lượng tương tác giữa ứng dụng và database tại runtime
 
 ---
 
@@ -15,6 +15,7 @@
 ## Mục lục
 
 - [Cách hoạt động](#cách-hoạt-động)
+- [Kiến trúc 2 tầng](#kiến-trúc-2-tầng)
 - [Yêu cầu](#yêu-cầu)
 - [Cài đặt](#cài-đặt)
 - [Tích hợp](#tích-hợp)
@@ -51,6 +52,37 @@ Có thư viện:         App → QualityDataSource → DataSource → Database
 ```
 
 Ứng dụng không biết mình đang bị intercept — vẫn sử dụng `DataSource` như bình thường. Toàn bộ service classes, repositories, và business logic không bị đụng đến.
+
+---
+
+## Kiến trúc 2 tầng
+
+Thư viện tách rõ 2 layer hoạt động song song:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  COLLECTION LAYER  (realtime, mỗi lần SQL chạy)             │
+│                                                             │
+│  JDBC Intercept → QueryMetricsStore (aggregated metrics)    │
+│                 → DDLContext (schema snapshot)              │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  ANALYSIS LAYER  (scheduled, theo interval cấu hình)        │
+│                                                             │
+│  ScheduledAnalysisJob → Warm ExplainCache                   │
+│                       → Chạy 10 rules                       │
+│                       → Lưu AnalysisResultStore             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Tại sao tách 2 tầng:**
+
+- **Collection** chạy mỗi query → phải cực nhẹ (chỉ ghi metric vào in-memory map). Không có rule analysis ở đây.
+- **Analysis** chạy theo interval (mặc định 5 phút) → có thể tốn nhiều thời gian hơn cho EXPLAIN, schema cross-check, rule evaluation mà không ảnh hưởng request thực tế.
+- Tất cả rule đều đọc từ **aggregated metrics** chứ không phải từng SQL record → phát hiện được pattern (N+1, slow query, full scan thường xuyên) thay vì chỉ 1 event đơn lẻ.
+
+Có thể trigger analysis ngay bằng nút **⚡ Run Analysis Now** trên dashboard mà không cần đợi interval tiếp theo.
 
 ---
 
@@ -239,6 +271,18 @@ quality.n-plus-one-threshold=10
 # Sampling rate — 1.0 nghĩa là capture 100% queries (mặc định: 1.0)
 quality.sampling-rate=1.0
 
+# ── Analysis (mới) ───────────────────────────────────────────────────
+# Bật scheduled analysis job (mặc định: true)
+# Nếu false, chỉ chạy analysis khi bấm "Run Analysis Now" trên dashboard
+quality.analysis.scheduled=true
+
+# Chu kỳ chạy analysis. Hỗ trợ duration friendly: 30s, 5m, 1h, 24h (mặc định: 5m)
+quality.analysis.interval=5m
+
+# Delay trước lần analysis đầu tiên sau khi app khởi động (mặc định: 30s)
+# Cho app có thời gian warm-up và collect đủ SQL trước khi phân tích
+quality.analysis.initial-delay=30s
+
 # ── Dashboard ─────────────────────────────────────────────────────────
 # Bật/tắt dashboard HTTP server (mặc định: true)
 quality.dashboard.enabled=true
@@ -276,49 +320,66 @@ Khi thư viện khởi động, dashboard tự động chạy tại `http://loca
 <p align="center">
   <img src="public/tab-overview.png" alt="Dashboard Overview" width="800"/>
   <br/>
-  <em>Tab Overview — metrics tổng quan, latency percentiles, top tables và slow queries</em>
+  <em>Tab Overview — score badge ở header, 4 metric cards, latency percentiles, top tables theo tần suất, và top slow queries kèm nút EXPLAIN. Header có nút "Run Analysis Now" để trigger phân tích ngay không cần đợi interval.</em>
 </p>
 
-Dashboard được chia thành 4 tab:
+Dashboard được chia thành **6 tab**:
 
 | Tab | Nội dung |
 |---|---|
-| **Overview** | 4 metric cards, latency percentiles, latency trend chart (P50/P95/P99), top tables theo tần suất, top slow queries với execution plan |
+| **Overview** | Score badge, 4 metric cards (Total SQL / Slow Queries / N+1 / Error Rate), latency percentiles P50/P95/P99, top tables theo tần suất, top slow queries với nút EXPLAIN |
 | **Findings** | Danh sách tất cả findings được phân trang (10/trang), filter theo severity |
+| **Collected Queries** | Input transparency — toàn bộ SQL pattern đã intercept với call count, avg/min/max duration, và calledFrom |
+| **Schema Snapshot** | DDL đã thu thập qua `DatabaseMetaData` — tables, columns, indexes, foreign keys |
 | **AI** | AI-ready context để copy/export, AI Insights từ LLM (nếu được bật) |
 | **Project** | Thông tin database, framework, ORM, connection pool, JVM, memory |
 
-
-
 <p align="center">
-  <img src="public/tab-finding.png" alt="Dashboard Findings" width="800"/>
+  <img src="public/tab-findings.png" alt="Dashboard Findings" width="800"/>
   <br/>
-  <em>Tab Findings — danh sách findings được phân loại theo severity</em>
+  <em>Tab Findings — danh sách findings sắp xếp theo severity (CRITICAL → HIGH → MEDIUM → WARNING), kèm message, recommendation và vị trí gọi trong code.</em>
 </p>
 
 <p align="center">
-  <img src="public/tab-finding-filter.png" alt="Dashboard Findings" width="800"/>
+  <img src="public/tab-findings-filter.png" alt="Dashboard Findings Filter" width="800"/>
   <br/>
-  <em>Filter theo severity</em>
+  <em>Lọc findings theo từng mức severity để tập trung xử lý vấn đề ưu tiên cao trước.</em>
 </p>
 
 <p align="center">
-  <img src="public/tab-ai.png" alt="Dashboard AI" width="800"/>
+  <img src="public/tab-collected-queries.png" alt="Collected Queries" width="800"/>
   <br/>
-  <em>Tab AI — AI-ready context và AI Insights từ LLM</em>
+  <em>Tab Collected Queries — minh bạch input của rule engine. Hiển thị toàn bộ SQL pattern đã được normalize, kèm metrics tổng hợp (call count, avg/min/max duration) và vị trí code gọi nhiều nhất.</em>
 </p>
 
 <p align="center">
-  <img src="public/tab-ai-2.png" alt="Dashboard AI" width="800"/>
+  <img src="public/tab-schema-snapshot.png" alt="Schema Snapshot" width="800"/>
   <br/>
-  <em>Tab AI — AI-ready context và AI Insights từ LLM</em>
+  <em>Tab Schema Snapshot — minh bạch input DDL. Hiển thị cấu trúc schema thu thập qua DatabaseMetaData lúc startup: tables, columns kèm kiểu dữ liệu và ràng buộc nullable, indexes, và foreign keys.</em>
 </p>
 
+<p align="center">
+  <img src="public/tab-overview-execution-plan.png" alt="Execution Plan Modal" width="800"/>
+  <br/>
+  <em>Modal Execution Plan hiển thị khi bấm nút EXPLAIN trên slow query — bao gồm findings phát hiện từ plan (full scan, low selectivity...) và raw JSON output của EXPLAIN.</em>
+</p>
+
+<p align="center">
+  <img src="public/tab-ai.png" alt="AI Tab Prompt" width="800"/>
+  <br/>
+  <em>Tab AI (phần trên) — hiển thị AI-ready context: prompt structured được build từ schema summary, top findings, metrics, và slow queries. Có thể copy hoặc export để dùng với bất kỳ LLM nào.</em>
+</p>
+
+<p align="center">
+  <img src="public/tab-ai-2.png" alt="AI Insights" width="800"/>
+  <br/>
+  <em>Tab AI (phần dưới) — AI Insights được render từ markdown response của LLM với hỗ trợ code block, table, list, blockquote. Hữu ích để LLM phân tích sâu hơn và đề xuất SQL fix cụ thể.</em>
+</p>
 
 <p align="center">
   <img src="public/tab-project.png" alt="Dashboard Project" width="800"/>
   <br/>
-  <em>Tab Project — thông tin database, framework, JVM và memory</em>
+  <em>Tab Project — thông tin runtime: database product/version, framework (Spring Boot/Quarkus/Micronaut), ORM, connection pool, JVM heap usage, và uptime.</em>
 </p>
 
 ### API Endpoints
@@ -326,13 +387,16 @@ Dashboard được chia thành 4 tab:
 | Endpoint | Method | Mô tả |
 |---|---|---|
 | `/` | GET | HTML dashboard |
-| `/metrics` | GET | Metrics realtime (JSON) |
-| `/findings` | GET | Findings realtime (JSON) |
-| `/report` | GET | Report đầy đủ (JSON) |
+| `/metrics` | GET | Realtime metrics đọc từ `QueryMetricsStore` (JSON) |
+| `/collected-queries` | GET | Toàn bộ SQL pattern + aggregated metrics (JSON) |
+| `/schema-snapshot` | GET | DDL schema đã thu thập (JSON) |
+| `/findings` | GET | Findings từ analysis gần nhất, đọc từ cache (JSON) |
+| `/report` | GET | Báo cáo đầy đủ (JSON) |
 | `/slow-queries` | GET | Slow queries kèm execution plan (JSON) |
 | `/ai-context` | GET | AI-ready context prompt (JSON) |
 | `/project-info` | GET | Thông tin project và môi trường (JSON) |
-| `/metrics-trend` | GET | Latency trend theo time bucket 30s (JSON) |
+| `/analysis-status` | GET | Trạng thái analysis job — lastRun, nextRun, scheduled enabled |
+| `/analyze-now` | POST | Trigger manual analysis ngay (không đợi interval) |
 | `/ai-refresh` | POST | Reset AI cache để gọi lại LLM |
 
 ### Tắt dashboard
@@ -347,25 +411,41 @@ quality.dashboard.enabled=false
 
 ### Tổng quan
 
-Thư viện tích hợp sẵn 10 rules, tự động chạy sau mỗi request đến dashboard:
+Thư viện tích hợp sẵn **10 rules**, chạy theo scheduled analysis job (mặc định 5 phút/lần) hoặc trigger thủ công:
 
 | Rule | Mô tả | Severity | Nguồn data |
 |---|---|---|---|
 | `MISSING_PRIMARY_KEY` | Bảng không có primary key | CRITICAL | DDL |
 | `UNINDEXED_FOREIGN_KEY` | Cột foreign key không có index | HIGH | DDL |
-| `SELECT_STAR` | Query dùng `SELECT *` | MEDIUM | SQL |
-| `N_PLUS_ONE` | Cùng query pattern bị lặp lại trong vòng lặp | HIGH | SQL |
-| `SLOW_QUERY` | Query vượt ngưỡng thời gian thực thi | HIGH | SQL |
-| `FULL_TABLE_SCAN_CANDIDATE` | Query có khả năng gây full table scan | HIGH | SQL |
-| `UNUSED_INDEX` | Index không được dùng trong session | WARNING | DDL + SQL |
+| `SELECT_STAR` | Query dùng `SELECT *` | MEDIUM | Metrics |
+| `N_PLUS_ONE` | Pattern lặp nhiều lần — phân loại theo count + variance + duration | Dynamic (HIGH/MEDIUM/WARNING) | Metrics |
+| `SLOW_QUERY` | Query có max duration vượt ngưỡng | HIGH | Metrics |
+| `FULL_TABLE_SCAN_CANDIDATE` | EXPLAIN cho thấy full table scan | Dynamic (HIGH/MEDIUM) | EXPLAIN + Metrics |
+| `UNUSED_INDEX` | Index không xuất hiện trong bất kỳ EXPLAIN nào | WARNING | DDL + EXPLAIN |
 | `SUSPICIOUS_DATA_TYPE` | Kiểu dữ liệu cột không phù hợp (FLOAT cho tài chính, VARCHAR cho date) | WARNING | DDL |
-| `NULLABLE_RISK` | Cột nullable được dùng trong WHERE | WARNING | DDL + SQL |
-| `MISSING_INDEX_SUGGESTION` | Cột dùng trong WHERE không có index | MEDIUM | DDL + SQL |
+| `NULLABLE_RISK` | Cột nullable được dùng trong WHERE | WARNING | DDL + Metrics |
+| `MISSING_INDEX` | EXPLAIN xác định cột WHERE/JOIN chưa có index | MEDIUM | EXPLAIN + DDL |
 
-### DDL rules vs SQL rules
+### DDL rules vs Metrics-based rules
 
 - **DDL rules** (`MISSING_PRIMARY_KEY`, `UNINDEXED_FOREIGN_KEY`, `SUSPICIOUS_DATA_TYPE`) — detect ngay khi khởi động từ `DatabaseMetaData`, không cần SQL nào được thực thi.
-- **SQL rules** (`SELECT_STAR`, `N_PLUS_ONE`, `SLOW_QUERY`, ...) — cần SQL thực tế chạy qua mới detect được. Chạy workload hoặc gọi API trước khi xem findings.
+- **Metrics-based rules** (`SELECT_STAR`, `N_PLUS_ONE`, `SLOW_QUERY`, ...) — cần SQL thực tế chạy qua mới detect được. Chạy workload hoặc gọi API trước khi xem findings.
+- **EXPLAIN-based rules** (`FULL_TABLE_SCAN_CANDIDATE`, `MISSING_INDEX`, `UNUSED_INDEX`) — dùng kết quả `EXPLAIN` thật cho từng SQL pattern (cache lại để overhead minimal) thay vì regex heuristic. Chính xác hơn, ít false positive.
+
+### N+1 phân loại theo metrics
+
+Rule `N_PLUS_ONE` không chỉ đếm số lần lặp mà phân tích theo nhiều chỉ số:
+
+| Pattern | Đặc điểm | Severity |
+|---|---|---|
+| **Điển hình (lazy loading)** | Query nhỏ + duration ổn định + lặp nhiều | HIGH/MEDIUM theo count |
+| **Nghiêm trọng** | Query nặng (avg ≥ 50ms) + lặp nhiều | HIGH |
+| **Biến động** | Variance lớn — có thể do cache miss/hit | Dynamic |
+
+Severity dựa trên cả **callCount** và **total impact (ms)**:
+- HIGH: `callCount ≥ 50` HOẶC `total impact > 1000ms`
+- MEDIUM: `callCount ≥ 20` HOẶC `total impact > 200ms`
+- WARNING: còn lại
 
 ### Scoring
 
@@ -379,15 +459,17 @@ Score = 100
       - min(warning_count ×  1,  5)
 ```
 
+Hover chuột vào score badge trên header để xem công thức tính.
+
 ---
 
 ## Execution Plan Analysis
 
-Với mỗi slow query, thư viện tự động chạy `EXPLAIN` và parse kết quả để phát hiện thêm vấn đề:
+Sau refactor, các rule `FULL_TABLE_SCAN_CANDIDATE`, `MISSING_INDEX`, `UNUSED_INDEX` đều dựa trên **kết quả EXPLAIN thật** thay vì regex heuristic. Mỗi unique SQL pattern chỉ chạy EXPLAIN 1 lần (cache lại) — overhead minimal ngay cả với app có hàng nghìn query.
 
 | Finding | Mô tả |
 |---|---|
-| `FULL_TABLE_SCAN` | `access_type: ALL` — đọc toàn bộ bảng |
+| `FULL_TABLE_SCAN` | `access_type: ALL` (MySQL) / `Seq Scan` (PostgreSQL) / `Table Scan` (SQL Server) |
 | `FULL_INDEX_SCAN` | `access_type: index` — scan toàn bộ index |
 | `INDEX_NOT_USED` | Có possible keys nhưng không dùng index nào |
 | `LOW_INDEX_SELECTIVITY` | Index có selectivity thấp (MariaDB) |
@@ -397,21 +479,15 @@ Với mỗi slow query, thư viện tự động chạy `EXPLAIN` và parse kế
 
 Kết quả được hiển thị trong modal khi click nút **EXPLAIN** trên tab Overview.
 
-<p align="center">
-  <img src="public/tab-overview-execution-plan.png" alt="Dashboard Findings" width="800"/>
-  <br/>
-  <em>Execution Plan cho những câu queries chạy vượt ngưỡng</em>
-</p>
-
 ### Database được hỗ trợ cho Execution Plan
 
 | Database | Cú pháp | Trạng thái |
 |---|---|---|
-| MySQL 5.6+ | `EXPLAIN FORMAT=JSON` |  Hỗ trợ |
-| MariaDB 10.1+ | `EXPLAIN FORMAT=JSON` |  Hỗ trợ |
-| PostgreSQL | `EXPLAIN (FORMAT JSON, ANALYZE)` |  Hỗ trợ |
-| SQL Server | XML execution plan |  Planned |
-| Oracle | `EXPLAIN PLAN FOR` |  Planned |
+| MySQL 5.6+ | `EXPLAIN FORMAT=JSON` | Hỗ trợ |
+| MariaDB 10.1+ | `EXPLAIN FORMAT=JSON` | Hỗ trợ |
+| PostgreSQL | `EXPLAIN (FORMAT JSON, ANALYZE)` | Hỗ trợ |
+| SQL Server | XML execution plan | Hỗ trợ |
+| Oracle | `EXPLAIN PLAN FOR` | Planned |
 | Khác | — | Bỏ qua, không ảnh hưởng tính năng khác |
 
 ---
@@ -431,13 +507,13 @@ quality.ai.model=gemini-2.5-flash
 
 ### Providers được hỗ trợ
 
-| Provider | Model ví dụ | Trạng thái         |
-|---|---|--------------------|
-| OpenAI | `gpt-4o`, `gpt-4-turbo` | Có                 |
-| Anthropic Claude | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` | Có                 |
-| Google Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` | Có                 |
-| DeepSeek | `deepseek-chat` | Đang phát triển    |
-| Grok (xAI) | `grok-2` | Đang phát triển    |
+| Provider | Model ví dụ | Trạng thái |
+|---|---|---|
+| OpenAI | `gpt-4o`, `gpt-4-turbo` | Có |
+| Anthropic Claude | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` | Có |
+| Google Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` | Có |
+| DeepSeek | `deepseek-chat` | Đang phát triển |
+| Grok (xAI) | `grok-2` | Đang phát triển |
 
 **Fallback:** Nếu AI bị tắt hoặc API call thất bại (quota, invalid key, overload), thư viện tự động fallback về rule-based output — không throw exception, ứng dụng vẫn hoạt động bình thường.
 
@@ -476,9 +552,9 @@ Ví dụ output:
     {
       "rule": "N_PLUS_ONE",
       "severity": "HIGH",
-      "message": "Query pattern lặp lại 510 lần",
-      "recommendation": "Dùng JOIN hoặc batch fetch thay vì query trong vòng lặp",
-      "calledFrom": "WorkloadService:52 -> triggerNPlusOne()"
+      "message": "N+1 điển hình (lazy loading) — query lặp 67 lần (avg 0.7ms, min 0ms, max 2ms, tổng 50ms)",
+      "recommendation": "Pattern điển hình của Hibernate lazy loading trong vòng lặp. Dùng @EntityGraph, JOIN FETCH, hoặc @BatchSize",
+      "calledFrom": "LeaveServiceImpl:85 -> toResponse()"
     }
   ],
   "slowQueries": [...],
@@ -498,34 +574,59 @@ Ví dụ output:
 
 ## Custom Rules
 
-Để thêm rule tùy chỉnh, implement interface `Rule`:
+Để thêm rule tùy chỉnh, có 2 lựa chọn tùy theo nguồn data cần dùng:
+
+**1. Rule dựa trên DDL + raw SQL** — implement `Rule`:
 
 ```java
 public class TooManyTablesRule implements Rule {
 
     @Override
-    public String getName() {
-        return "TOO_MANY_TABLES";
-    }
+    public String getName() { return "TOO_MANY_TABLES"; }
 
     @Override
-    public Severity getSeverity() {
-        return Severity.WARNING;
-    }
+    public Severity getSeverity() { return Severity.WARNING; }
 
     @Override
     public RuleResult analyze(DDLContext ddl, SQLContext sql) {
         List<Finding> findings = new ArrayList<>();
-
         if (ddl.getTables().size() > 50) {
             findings.add(Finding.builder()
                 .rule(getName())
                 .severity(getSeverity())
-                .message("Schema có " + ddl.getTables().size() + " bảng — xem xét tách module")
+                .message("Schema có " + ddl.getTables().size() + " bảng")
                 .recommendation("Cân nhắc tách thành các bounded context riêng biệt")
                 .build());
         }
+        return new RuleResult(findings);
+    }
+}
+```
 
+**2. Rule dựa trên aggregated metrics** — implement `MetricsBasedRule`:
+
+```java
+public class HighCallCountRule implements MetricsBasedRule {
+
+    @Override
+    public String getName() { return "HIGH_CALL_COUNT"; }
+
+    @Override
+    public Severity getSeverity() { return Severity.WARNING; }
+
+    @Override
+    public RuleResult analyze(DDLContext ddl, QueryMetricsStore metricsStore) {
+        List<Finding> findings = new ArrayList<>();
+        for (QueryMetric metric : metricsStore.getAllMetrics()) {
+            if (metric.getCallCount() > 1000) {
+                findings.add(Finding.builder()
+                    .rule(getName())
+                    .severity(getSeverity())
+                    .message("Pattern gọi " + metric.getCallCount() + " lần")
+                    .calledFrom(metric.getMostFrequentCalledFrom())
+                    .build());
+            }
+        }
         return new RuleResult(findings);
     }
 }
@@ -582,15 +683,15 @@ quality.ai.model=your-model
 
 Thư viện hoạt động với **mọi SQL database có JDBC driver**. Execution Plan Analysis yêu cầu parser riêng cho từng vendor:
 
-| Database | JDBC Wrapping | Rule Engine | Execution Plan  |
-|---|---------------|---|-----------------|
-| MySQL 5.6+ | Có            | Có | Có              |
-| MariaDB 10.1+ | Có             | Có | Có              |
-| PostgreSQL | Có             | Có | Có              |
-| SQL Server | Có             | Có | Đang phát triển |
-| Oracle | Có             | Có | Đang phát triển      |
-| H2 | Có             | Có | Không           |
-| SQLite | Có             | Có | Không           |
+| Database | JDBC Wrapping | Rule Engine | Execution Plan |
+|---|---|---|---|
+| MySQL 5.6+ | Có | Có | Có |
+| MariaDB 10.1+ | Có | Có | Có |
+| PostgreSQL | Có | Có | Có |
+| SQL Server | Có | Có | Có |
+| Oracle | Có | Có | Đang phát triển |
+| H2 | Có | Có | Không |
+| SQLite | Có | Có | Không |
 
 > Database chưa có Execution Plan parser → tính năng đó bị bỏ qua, các tính năng khác không bị ảnh hưởng.
 
@@ -608,13 +709,15 @@ db-quality-library/
 │   │   ├── QualityPreparedStatement.java  # Intercept PreparedStatement
 │   │   └── QualityStatement.java          # Intercept Statement thường
 │   │
-│   ├── collector/                         # Thu thập dữ liệu
+│   ├── collector/                         # Collection layer — thu thập data realtime
 │   │   ├── SQLCollector.java
 │   │   ├── SQLRecord.java                 # 1 lần thực thi SQL
 │   │   ├── SQLContext.java                # Toàn bộ SQL trong session
-│   │   ├── DDLCollector.java              # Thu thập schema
+│   │   ├── QueryMetric.java               # Aggregated metrics cho 1 SQL pattern
+│   │   ├── QueryMetricsStore.java         # Store metrics theo pattern
+│   │   ├── DDLCollector.java              # Thu thập schema lúc startup
 │   │   ├── DDLContext.java                # Cấu trúc database
-│   │   ├── ProjectInfoCollector.java      # Thu thập thông tin project/môi trường
+│   │   ├── ProjectInfoCollector.java
 │   │   ├── ProjectInfo.java
 │   │   └── model/
 │   │       ├── Table.java
@@ -622,71 +725,72 @@ db-quality-library/
 │   │       ├── Index.java
 │   │       └── ForeignKey.java
 │   │
+│   ├── analysis/                          # Analysis layer — chạy rule theo interval
+│   │   └── ScheduledAnalysisJob.java      # Background thread chạy rule engine
+│   │
 │   ├── rule/                              # Rule engine
-│   │   ├── Rule.java                      # Interface
+│   │   ├── Rule.java                      # Interface cho DDL + raw SQL rules
+│   │   ├── MetricsBasedRule.java          # Interface cho rules dùng aggregated metrics
 │   │   ├── RuleEngine.java
 │   │   ├── RuleResult.java
 │   │   ├── Finding.java
-│   │   ├── Severity.java
 │   │   └── impl/                          # 10 rules tích hợp sẵn
 │   │       ├── MissingPrimaryKeyRule.java
 │   │       ├── UnindexedForeignKeyRule.java
 │   │       ├── SelectStarRule.java
 │   │       ├── NPlusOneRule.java
 │   │       ├── SlowQueryRule.java
-│   │       ├── FullTableScanCandidateRule.java
-│   │       ├── UnusedIndexRule.java
+│   │       ├── FullTableScanRule.java     # EXPLAIN-based (refactored)
+│   │       ├── MissingIndexRule.java      # EXPLAIN-based (refactored)
+│   │       ├── UnusedIndexRule.java       # EXPLAIN-based (refactored)
 │   │       ├── SuspiciousDataTypeRule.java
-│   │       ├── NullableRiskRule.java
-│   │       └── MissingIndexSuggestionRule.java
+│   │       └── NullableRiskRule.java
 │   │
 │   ├── explain/                           # Execution Plan Analysis
 │   │   ├── ExplainParser.java             # Interface
 │   │   ├── ExplainResult.java
-│   │   ├── ExplainParserFactory.java      # Detect DB vendor và chọn parser
+│   │   ├── ExplainCache.java              # Cache EXPLAIN per SQL pattern
+│   │   ├── ExplainParserFactory.java
 │   │   └── impl/
 │   │       ├── MySQLExplainParser.java
 │   │       ├── MariaDBExplainParser.java
 │   │       ├── PostgreSQLExplainParser.java
-│   │       ├── SQLServerExplainParser.java 
-│   │       └── OracleExplainParser.java    # Planned
-│   │
-│   ├── metrics/                           # Latency metrics
-│   │   ├── LatencyCalculator.java         # Tính P50/P95/P99
-│   │   └── MetricsCollector.java          # Thu thập theo time bucket 30s
+│   │       ├── SQLServerExplainParser.java
+│   │       └── OracleExplainParser.java
 │   │
 │   ├── report/                            # Tạo output
 │   │   ├── QualityReport.java
 │   │   ├── MetricsReport.java
-│   │   ├── SlowQueryReport.java           # Slow query + execution plan
+│   │   ├── SlowQueryReport.java
 │   │   ├── ReportBuilder.java
+│   │   ├── AnalysisResultStore.java       # Cache findings + score
 │   │   ├── DashboardServer.java           # Embedded HTTP server (port 9876)
-│   │   ├── AIContextExporter.java         # Export AI-ready context ra file
+│   │   ├── AIContextExporter.java
 │   │   └── JSONExporter.java
 │   │
 │   ├── ai/                                # AI Integration — Strategy Pattern
-│   │   ├── LLMProvider.java               # Interface
+│   │   ├── LLMProvider.java
 │   │   ├── LLMProviderFactory.java
 │   │   └── impl/
 │   │       ├── OpenAIProvider.java
 │   │       ├── ClaudeProvider.java
 │   │       ├── GeminiProvider.java
-│   │       ├── DeepSeekProvider.java      # Đang phát triển
-│   │       └── GrokProvider.java          # Đang phát triển
+│   │       ├── DeepSeekProvider.java
+│   │       └── GrokProvider.java
 │   │
 │   ├── config/
-│   │   ├── QualityConfig.java             # Đọc config từ application.properties
-│   │   └── QualityAutoConfiguration.java  # Spring Boot zero-config
+│   │   ├── QualityConfig.java
+│   │   └── QualityAutoConfiguration.java
 │   │
 │   ├── constant/
-│   │   ├── Constant.java                  # API endpoints, timeouts, defaults, regex patterns
+│   │   ├── Constant.java                  # Endpoints, defaults, regex patterns
 │   │   └── Severity.java
 │   │
 │   └── util/
-│       ├── SQLFilter.java                 # Filter system SQL (Flyway, Hibernate, HikariCP)
-│       ├── SchemaFilter.java              # Filter system tables
-│       ├── FindingUtil.java               # Phân loại findings (DDL vs SQL)
-│       └── AIProviderUtil.java            # Xử lý error messages từ AI provider
+│       ├── SQLFilter.java                 # Filter system SQL
+│       ├── SchemaFilter.java              # Filter system tables (Flyway, Liquibase...)
+│       ├── SQLNormalizer.java             # Normalize SQL (literal → ?)
+│       └── AIProviderUtil.java
 │
 ├── src/main/resources/
 │   ├── dashboard.html
@@ -715,8 +819,15 @@ Có. Tất cả ORM frameworks đều sử dụng JDBC ở tầng cuối. Thư v
 **Tại sao Plain Java lại quan trọng?**
 Vì JDBC là nền tảng chung của toàn bộ hệ sinh thái Java database. Nếu thư viện wrap được `DataSource` ở tầng JDBC thuần, tất cả frameworks phía trên (Spring Boot, Micronaut, Quarkus, ...) đều có thể dùng được vì chúng đều đi qua JDBC để kết nối database.
 
+**Khi nào thì findings xuất hiện trên dashboard?**
+DDL rules detect ngay khi khởi động. Các rule còn lại chạy theo scheduled job (mặc định 5 phút/lần, có `initial-delay` 30s từ lúc startup). Có thể bấm **Run Analysis Now** trên dashboard để trigger ngay.
+
 **Tôi không thấy finding nào sau khi khởi động?**
-DDL rules (MISSING_PRIMARY_KEY, UNINDEXED_FK, SUSPICIOUS_DATA_TYPE) chạy ngay khi khởi động. SQL rules (N+1, SELECT*, SLOW_QUERY) cần SQL thực tế được thực thi — hãy gọi API hoặc chạy workload trước.
+- DDL rules đã chạy nhưng schema không có vấn đề nào → bình thường
+- Metrics-based rules cần SQL thật chạy qua: gọi API hoặc chạy workload, đợi analysis interval (hoặc bấm Run Analysis Now)
+
+**Thư viện có chạy lại EXPLAIN mỗi lần SQL thực thi không?**
+Không. EXPLAIN được cache theo SQL pattern (đã normalize). Mỗi unique pattern chỉ chạy EXPLAIN 1 lần. App thực tế chỉ có vài chục đến vài trăm pattern → overhead minimal.
 
 **`calledFrom` đang chỉ vào framework internal thay vì code của tôi?**
 Thêm package prefix của framework vào `INTERNAL_PREFIXES` trong `Constant.java`. Thư viện duyệt stack trace và bỏ qua các frame thuộc prefix này để tìm đúng frame code nghiệp vụ.
@@ -728,7 +839,7 @@ Thư viện log warning và fallback về rule-based output. Không throw except
 Không. Toàn bộ dữ liệu lưu in-memory, reset khi restart. Đây là thiết kế có chủ đích — thư viện phân tích hành vi runtime hiện tại, không phải lịch sử.
 
 **Có ảnh hưởng đến performance của ứng dụng không?**
-Overhead rất nhỏ — chủ yếu là thời gian ghi vào in-memory buffer và stack trace capture. Với `sampling-rate=1.0`, overhead trung bình dưới 1ms mỗi query. Có thể giảm `sampling-rate` để giảm overhead.
+Overhead rất nhỏ — chủ yếu là thời gian ghi vào in-memory aggregated map và stack trace capture. EXPLAIN chỉ chạy 1 lần per pattern (cache). Analysis job chạy ở background thread, không block request. Với `sampling-rate=1.0`, overhead trung bình dưới 1ms mỗi query.
 
 **Dashboard có cần authentication không?**
 Hiện tại không có authentication. Dashboard được thiết kế để dùng trong môi trường development/staging. Không nên expose port 9876 ra ngoài internet trong production.
