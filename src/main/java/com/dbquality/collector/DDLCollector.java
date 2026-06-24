@@ -4,6 +4,7 @@ import com.dbquality.collector.model.Column;
 import com.dbquality.collector.model.ForeignKey;
 import com.dbquality.collector.model.Index;
 import com.dbquality.collector.model.Table;
+import com.dbquality.util.SchemaFilter;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -44,6 +45,10 @@ public class DDLCollector {
         new String[]{"TABLE"})) {
       while (rs.next()) {
         String tableName = rs.getString("TABLE_NAME");
+
+        // Skip system tables (Flyway, Liquibase, Spring Batch/Session, Quartz...)
+        if (SchemaFilter.isSystemTable(tableName)) continue;
+
         List<Column> columns   = collectColumns(meta, catalog, schema, tableName);
         List<Index> indexes    = collectIndexes(meta, catalog, schema, tableName);
         List<ForeignKey> fks   = collectForeignKeys(meta, catalog, schema, tableName);
@@ -52,7 +57,6 @@ public class DDLCollector {
     }
     return tables;
   }
-
   //  Thu thập columns
   private List<Column> collectColumns(DatabaseMetaData meta,
       String catalog,
