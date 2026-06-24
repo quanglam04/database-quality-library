@@ -298,16 +298,21 @@ function copyAIContext() {
 }
 
 function updateScore(score) {
-  const badge = document.getElementById('scoreBadge');
-  badge.textContent = 'Score: ' + score + '/100';
-  badge.classList.remove('pulse');
+  const valueEl = document.getElementById('scoreValue');
+  const subEl = document.getElementById('scoreSub');
+  if (!valueEl) return;
+
+  valueEl.textContent = score + ' / 100';
+
   if (score >= 80) {
-    badge.style.background = '#14532d'; badge.style.color = '#86efac';
+    valueEl.style.color = '#86efac';
+    subEl.textContent = 'good';
   } else if (score >= 60) {
-    badge.style.background = '#422006'; badge.style.color = '#fcd34d';
+    valueEl.style.color = '#fcd34d';
+    subEl.textContent = 'needs attention';
   } else {
-    badge.style.background = '#450a0a'; badge.style.color = '#fca5a5';
-    badge.classList.add('pulse');
+    valueEl.style.color = '#fca5a5';
+    subEl.textContent = 'critical issues';
   }
 }
 
@@ -315,7 +320,6 @@ function updateMetrics(m) {
   document.getElementById('totalSQL').textContent  = m.totalSQLIntercepted ?? 0;
   document.getElementById('slowCount').textContent = m.slowQueryCount ?? 0;
   document.getElementById('nPlusOne').textContent  = m.nPlusOneDetected ?? 0;
-  document.getElementById('errorRate').textContent = (m.errorRate ?? 0).toFixed(1) + '%';
 
   const max = Math.max(m.p99Latency ?? 1, 1);
   document.getElementById('latencyBars').innerHTML = `
@@ -681,7 +685,11 @@ function prevPage() { currentPage--; renderPage(); }
 
 loadData();
 loadAIContext();
+loadSchemaSnapshot();
 setInterval(() => {
     loadData();
     loadAIContext();
+    if (document.getElementById('tab-queries').style.display !== 'none') {
+        loadCollectedQueries();
+    }
 }, 5000);

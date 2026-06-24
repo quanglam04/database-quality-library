@@ -27,12 +27,8 @@
                    transition: background 0.2s"
             onmouseover="this.style.background='#0d3d6a'"
             onmouseout="this.style.background='#0f4c81'">
-      ⚡ Run Analysis Now
+      Run Analysis Now
     </button>
-    <div id="scoreBadge" class="score-badge"
-         style="cursor:help"
-         onmouseenter="showChartTip(event,'Công thức tính điểm:\n\nBắt đầu từ 100 điểm, trừ dần:\n  CRITICAL  -20đ/finding  (tối đa -60)\n  HIGH      -10đ/finding  (tối đa -30)\n  MEDIUM     -3đ/finding  (tối đa -15)\n  WARNING    -1đ/finding  (tối đa  -5)')"
-         onmouseleave="hideChartTip()">--</div>
   </div>
 </header>
 
@@ -66,10 +62,12 @@
         <div class="value" id="nPlusOne" style="color:#fca5a5">--</div>
         <div class="sub">patterns</div>
       </div>
-      <div class="card">
-        <h3>Error Rate</h3>
-        <div class="value" id="errorRate" style="color:#f87171">--</div>
-        <div class="sub">of total queries</div>
+      <div class="card" id="scoreCard" style="cursor:help"
+           onmouseenter="showChartTip(event,'Công thức tính điểm:\n\nBắt đầu từ 100 điểm, trừ dần:\n  CRITICAL  -20đ/finding  (tối đa -60)\n  HIGH      -10đ/finding  (tối đa -30)\n  MEDIUM     -3đ/finding  (tối đa -15)\n  WARNING    -1đ/finding  (tối đa  -5)')"
+           onmouseleave="hideChartTip()">
+        <h3>Quality Score</h3>
+        <div class="value" id="scoreValue">--</div>
+        <div class="sub" id="scoreSub">overall</div>
       </div>
     </div>
 
