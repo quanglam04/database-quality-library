@@ -1,5 +1,6 @@
 package com.dbquality.explain;
 
+import com.dbquality.constant.Constant.ExplainPlaceholder;
 import com.dbquality.util.SQLNormalizer;
 
 import javax.sql.DataSource;
@@ -122,7 +123,9 @@ public class ExplainCache {
     try (Connection conn = dataSource.getConnection();
         var stmt = conn.createStatement()) {
 
-      String explainSQL = buildExplainStatement(sql, parser);
+      String executableSql = makeExecutable(sql);
+      String explainSQL = buildExplainStatement(executableSql, parser);
+
       try (var rs = stmt.executeQuery(explainSQL)) {
         StringBuilder sb = new StringBuilder();
         while (rs.next()) {
@@ -133,6 +136,35 @@ public class ExplainCache {
     } catch (Exception e) {
       return null;
     }
+  }
+
+  /**
+   * Biến SQL pattern (có ? placeholder) thành câu SQL chạy được cho EXPLAIN.
+   *
+   * <p>Phải xử lý theo thứ tự cụ thể vì có context yêu cầu giá trị integer
+   * (LIMIT/OFFSET/FETCH/TOP), không nhận NULL:</p>
+   * <ol>
+   *   <li>LIMIT ?, ? (MySQL)        → LIMIT 0, 10</li>
+   *   <li>LIMIT ? OFFSET ? (PG)     → LIMIT 10 OFFSET 0</li>
+   *   <li>LIMIT ? / OFFSET ?        → LIMIT 10 / OFFSET 0</li>
+   *   <li>FETCH NEXT ? ROWS (SQL Server / ANSI) → FETCH NEXT 10 ROWS</li>
+   *   <li>TOP (?) (SQL Server)      → TOP (10)</li>
+   *   <li>Các ? còn lại (WHERE/IN/JOIN) → NULL</li>
+   * </ol>
+   *
+   * <p>EXPLAIN chỉ cần plan, không cần kết quả thật nên giá trị dummy không ảnh hưởng.</p>
+   */
+  private String makeExecutable(String sql) {
+    if (sql == null) return null;
+    String s = sql;
+    s = s.replaceAll(ExplainPlaceholder.LIMIT_OFFSET_COUNT, ExplainPlaceholder.LIMIT_OFFSET_COUNT_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.LIMIT_WITH_OFFSET,  ExplainPlaceholder.LIMIT_WITH_OFFSET_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.LIMIT_SINGLE,       ExplainPlaceholder.LIMIT_SINGLE_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.OFFSET_SINGLE,      ExplainPlaceholder.OFFSET_SINGLE_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.FETCH_ROWS,         ExplainPlaceholder.FETCH_ROWS_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.TOP_PAREN,          ExplainPlaceholder.TOP_PAREN_REPLACEMENT);
+    s = s.replaceAll(ExplainPlaceholder.TOP_SIMPLE,         ExplainPlaceholder.TOP_SIMPLE_REPLACEMENT);
+    return s.replace("?", "NULL");
   }
 
   /**
