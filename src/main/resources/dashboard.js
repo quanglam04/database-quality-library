@@ -170,82 +170,205 @@ function truncate(s, n) {
   return s.length <= n ? s : s.substring(0, n) + '...';
 }
 
-//  Schema Snapshot Tab
-
+//  Schema Snapshot Tab (giờ render dạng ER Diagram)
+//  Giữ tên function loadSchemaSnapshot để tương thích với các chỗ gọi cũ
 async function loadSchemaSnapshot() {
-  const container = document.getElementById('schemaSnapshotList');
+  return loadERDiagram();
+}
+
+//  ER Diagram Tab (dùng mermaid.js, tận dụng lại /schema-snapshot)
+
+async function loadERDiagram() {
+  const container = document.getElementById('erdContainer');
   container.innerHTML = '<div class="empty">Loading...</div>';
   try {
     const res = await fetch('/schema-snapshot');
     const tables = await res.json();
-    renderSchemaSnapshot(tables);
+    await renderERDiagram(tables);
   } catch (e) {
     container.innerHTML = '<div class="error">Failed: ' + e.message + '</div>';
   }
 }
 
-function renderSchemaSnapshot(tables) {
-  const container = document.getElementById('schemaSnapshotList');
+function mapColumnTypeForMermaid(type) {
+  if (!type) return 'unknown';
+
+  // Bỏ phần (n) hoặc (n,m) trước, vd: VARCHAR(100) -> VARCHAR
+  let t = type.split('(')[0].trim().toLowerCase();
+
+  // Mermaid không chấp nhận khoảng trắng trong tên kiểu (token bị cắt giữa chừng)
+  // Map các kiểu nhiều từ của PostgreSQL/MySQL về 1 từ duy nhất
+  const typeMap = {
+    'double precision': 'double',
+    'character varying': 'varchar',
+    'character': 'char',
+    'timestamp without time zone': 'timestamp',
+    'timestamp with time zone': 'timestamptz',
+    'time without time zone': 'time',
+    'time with time zone': 'timetz'
+  };
+
+  if (typeMap[t]) return typeMap[t];
+
+  // Fallback an toàn: nếu vẫn còn khoảng trắng (kiểu lạ chưa map),
+  // nối lại bằng dấu gạch dưới thay vì để mermaid parse lỗi
+  return t.replace(/\s+/g, '_');
+}
+
+function buildMermaidERSyntax(tables) {
+  let lines = ['erDiagram'];
+
+  tables.forEach(t => {
+    (t.foreignKeys || []).forEach(fk => {
+      lines.push(
+        `  ${fk.referencedTable.toUpperCase()} ||--o{ ${t.name.toUpperCase()} : "${fk.column}"`
+      );
+    });
+  });
+
+  tables.forEach(t => {
+    lines.push(`  ${t.name.toUpperCase()} {`);
+    t.columns.forEach(c => {
+      const type = mapColumnTypeForMermaid(c.type);
+      const pk = c.primaryKey ? 'PK' : '';
+      const isFk = (t.foreignKeys || []).some(fk => fk.column === c.name);
+      const fk = isFk ? 'FK' : '';
+      const keyLabel = [pk, fk].filter(Boolean).join(',');
+
+      // Kiểm tra cột có index không (kể cả composite)
+      const matchedIndexes = (t.indexes || []).filter(
+        idx => (idx.columns || []).includes(c.name)
+      );
+      const hasIndex = matchedIndexes.length > 0;
+
+      // Ghép các icon thành chú thích cuối dòng:
+      //   🔑 = PK | 🔗 = FK | ❗ = NOT NULL | 📇 = có index (không phải PK)
+      const icons = [];
+      if (c.primaryKey) icons.push('🔑');
+      if (isFk) icons.push('🔗');
+      if (!c.nullable && !c.primaryKey) icons.push('❗'); // PK ngầm định NOT NULL
+      if (hasIndex && !c.primaryKey) icons.push('📇');
+
+      let commentText = icons.join(' ');
+      if (hasIndex && !c.primaryKey) {
+        commentText += ' ' + matchedIndexes.map(i => i.name).join(', ');
+      }
+      const comment = commentText ? `"${commentText.trim()}"` : '';
+
+      lines.push(`    ${type} ${c.name} ${keyLabel} ${comment}`.trimEnd());
+    });
+    lines.push('  }');
+  });
+
+  return lines.join('\n');
+}
+
+async function renderERDiagram(tables) {
+  const container = document.getElementById('erdContainer');
+
   if (!tables || tables.length === 0) {
     container.innerHTML = '<div class="empty">No tables collected</div>';
     return;
   }
 
-  container.innerHTML = `
-    <div style="margin-bottom:12px; font-size:12px; color:#64748b">
-      <b style="color:#e2e8f0">${tables.length}</b> tables —
-      ${tables.reduce((s, t) => s + t.columns.length, 0)} columns,
-      ${tables.reduce((s, t) => s + t.indexes.length, 0)} indexes,
-      ${tables.reduce((s, t) => s + (t.foreignKeys?.length ?? 0), 0)} foreign keys
-    </div>
-    ${tables.map(t => `
-      <div style="margin-bottom:16px; background:#0f172a; border:1px solid #334155;
-                  border-radius:8px; padding:12px">
-        <div style="display:flex; align-items:center; margin-bottom:10px">
-          <span style="font-size:14px; font-weight:600; color:#e2e8f0">${escapeHtml(t.name)}</span>
-          <span style="font-size:11px; color:#64748b; margin-left:8px">
-            ${t.columns.length} cols, ${t.indexes.length} indexes
-          </span>
-        </div>
+  const syntax = buildMermaidERSyntax(tables);
 
-        <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:8px">Columns:</div>
-        <div style="display:flex; flex-wrap:wrap; gap:6px">
-          ${t.columns.map(c => `
-            <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
-                         font-size:11px; font-family:monospace; color:#94a3b8;
-                         ${c.primaryKey ? 'border:1px solid #f59e0b; color:#fcd34d' : ''}">
-              ${c.primaryKey ? '🔑 ' : ''}${escapeHtml(c.name)}
-              <span style="color:#64748b">${escapeHtml(c.type)}</span>
-              ${!c.nullable ? '<span style="color:#ef4444">!</span>' : ''}
-            </span>
-          `).join('')}
-        </div>
+  if (!window._mermaidInitialized) {
+    window.mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        fontSize: '13px',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#334155',
+        lineColor: '#64748b',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#0f172a'
+      },
+      er: {
+        // Tăng padding ngang trong mỗi cell để chữ không bị cắt sát viền
+        entityPadding: 20,
+        // Tăng minEntityWidth để mermaid chừa đủ chỗ cho cột dài (vd: "indexed: ...")
+        minEntityWidth: 120
+      }
+    });
+    window._mermaidInitialized = true;
+  }
 
-        ${t.indexes.length > 0 ? `
-          <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:10px">Indexes:</div>
-          <div style="display:flex; flex-wrap:wrap; gap:6px">
-            ${t.indexes.map(i => `
-              <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
-                           font-size:11px; font-family:monospace; color:#22d3ee">
-                ${escapeHtml(i.name)}(${(i.columns || []).map(escapeHtml).join(', ')})
-              </span>
-            `).join('')}
-          </div>
-        ` : ''}
+  try {
+    const { svg } = await window.mermaid.render('erd-svg-' + Date.now(), syntax);
+    container.innerHTML = svg;
+    // Nếu zoom mode đang bật, gắn lại event cho SVG vừa render
+    if (window._zoomModeActive) applyZoomMode(true);
+  } catch (e) {
+    container.innerHTML = '<div class="error">Render failed: ' + e.message +
+      '<pre style="margin-top:8px; font-size:11px; color:#64748b">' +
+      escapeHtml(syntax) + '</pre></div>';
+  }
+}
 
-        ${t.foreignKeys && t.foreignKeys.length > 0 ? `
-          <div style="font-size:11px; color:#64748b; margin-bottom:4px; margin-top:10px">Foreign Keys:</div>
-          <div style="display:flex; flex-wrap:wrap; gap:6px">
-            ${t.foreignKeys.map(fk => `
-              <span style="background:#1e293b; padding:3px 8px; border-radius:4px;
-                           font-size:11px; font-family:monospace; color:#a78bfa">
-                ${escapeHtml(fk.column)} → ${escapeHtml(fk.referencedTable)}.${escapeHtml(fk.referencedColumn)}
-              </span>
-            `).join('')}
-          </div>
-        ` : ''}
-      </div>
-    `).join('')}`;
+//  Zoom mode cho ER Diagram — bật/tắt chế độ phóng to phần SVG theo chuột
+
+function toggleZoomMode() {
+  window._zoomModeActive = !window._zoomModeActive;
+  const btn = document.getElementById('zoomToggleBtn');
+
+  if (window._zoomModeActive) {
+    btn.style.background = '#0f4c81';
+    btn.style.color = 'white';
+    btn.style.borderColor = '#0f4c81';
+    applyZoomMode(true);
+  } else {
+    btn.style.background = '#1e293b';
+    btn.style.color = '#94a3b8';
+    btn.style.borderColor = '#334155';
+    applyZoomMode(false);
+  }
+}
+
+function applyZoomMode(enable) {
+  const container = document.getElementById('erdContainer');
+  const svg = container.querySelector('svg');
+  if (!svg) return;
+
+  if (enable) {
+    container.style.cursor = 'zoom-in';
+    svg.style.transformOrigin = '0 0';
+    svg.style.transition = 'transform 0.1s ease-out';
+    container.onmousemove = handleZoomMove;
+    container.onmouseleave = handleZoomLeave;
+  } else {
+    container.style.cursor = 'default';
+    svg.style.transform = '';
+    svg.style.transformOrigin = '';
+    svg.style.transition = '';
+    container.onmousemove = null;
+    container.onmouseleave = null;
+  }
+}
+
+function handleZoomMove(e) {
+  const container = document.getElementById('erdContainer');
+  const svg = container.querySelector('svg');
+  if (!svg) return;
+
+  // Vị trí chuột tương đối trong container
+  const rect = container.getBoundingClientRect();
+  const x = e.clientX - rect.left + container.scrollLeft;
+  const y = e.clientY - rect.top + container.scrollTop;
+
+  const zoomLevel = 2; // phóng to 2x
+  // Dịch chuyển sao cho điểm dưới chuột vẫn nằm dưới chuột sau khi scale
+  const tx = -(x * (zoomLevel - 1));
+  const ty = -(y * (zoomLevel - 1));
+
+  svg.style.transform = `translate(${tx}px, ${ty}px) scale(${zoomLevel})`;
+}
+
+function handleZoomLeave() {
+  const svg = document.getElementById('erdContainer').querySelector('svg');
+  if (svg) svg.style.transform = '';
 }
 
 //  Tab switching
@@ -259,7 +382,7 @@ function switchTab(tab) {
 
   // Lazy load nội dung khi switch sang tab tương ứng
   if (tab === 'queries') loadCollectedQueries();
-  if (tab === 'schema') loadSchemaSnapshot();
+  if (tab === 'schema') loadERDiagram();
 }
 
 
@@ -411,18 +534,6 @@ function renderPage() {
             onmouseout="this.style.background='#3b82f6'">Tiếp →</button>` : ''}
       </div>
     </div>`;
-}
-
-function switchTab(tab) {
-  // Ẩn tất cả panels
-  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-  // Bỏ active tất cả buttons
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-  // Hiện panel được chọn
-  document.getElementById('tab-' + tab).style.display = 'block';
-  // Active button được chọn
-  event.target.classList.add('active');
 }
 
 function updateSlowQueries(slowQueries) {
@@ -685,7 +796,6 @@ function prevPage() { currentPage--; renderPage(); }
 
 loadData();
 loadAIContext();
-loadSchemaSnapshot();
 setInterval(() => {
     loadData();
     loadAIContext();
