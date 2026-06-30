@@ -248,6 +248,124 @@ function renderSchemaSnapshot(tables) {
     `).join('')}`;
 }
 
+//  ER Diagram Tab (MỚI — dùng mermaid.js, tận dụng lại /schema-snapshot)
+
+async function loadERDiagram() {
+  const container = document.getElementById('erdContainer');
+  container.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch('/schema-snapshot');
+    const tables = await res.json();
+    await renderERDiagram(tables);
+  } catch (e) {
+    container.innerHTML = '<div class="error">Failed: ' + e.message + '</div>';
+  }
+}
+
+function mapColumnTypeForMermaid(type) {
+  if (!type) return 'unknown';
+
+  // Bỏ phần (n) hoặc (n,m) trước, vd: VARCHAR(100) -> VARCHAR
+  let t = type.split('(')[0].trim().toLowerCase();
+
+  // Mermaid không chấp nhận khoảng trắng trong tên kiểu (token bị cắt giữa chừng)
+  // Map các kiểu nhiều từ của PostgreSQL/MySQL về 1 từ duy nhất
+  const typeMap = {
+    'double precision': 'double',
+    'character varying': 'varchar',
+    'character': 'char',
+    'timestamp without time zone': 'timestamp',
+    'timestamp with time zone': 'timestamptz',
+    'time without time zone': 'time',
+    'time with time zone': 'timetz'
+  };
+
+  if (typeMap[t]) return typeMap[t];
+
+  // Fallback an toàn: nếu vẫn còn khoảng trắng (kiểu lạ chưa map),
+  // nối lại bằng dấu gạch dưới thay vì để mermaid parse lỗi
+  return t.replace(/\s+/g, '_');
+}
+
+function buildMermaidERSyntax(tables) {
+  let lines = ['erDiagram'];
+
+  tables.forEach(t => {
+    (t.foreignKeys || []).forEach(fk => {
+      lines.push(
+        `  ${fk.referencedTable.toUpperCase()} ||--o{ ${t.name.toUpperCase()} : "${fk.column}"`
+      );
+    });
+  });
+
+  tables.forEach(t => {
+    lines.push(`  ${t.name.toUpperCase()} {`);
+    t.columns.forEach(c => {
+      const type = mapColumnTypeForMermaid(c.type);
+      const pk = c.primaryKey ? 'PK' : '';
+      const isFk = (t.foreignKeys || []).some(fk => fk.column === c.name);
+      const fk = isFk ? 'FK' : '';
+      const keyLabel = [pk, fk].filter(Boolean).join(',');
+
+      // Kiểm tra cột này có nằm trong bất kỳ index nào không (kể cả composite index)
+      const matchedIndexes = (t.indexes || []).filter(
+        idx => (idx.columns || []).includes(c.name)
+      );
+      const hasIndex = matchedIndexes.length > 0;
+      // PK luôn có index ngầm định (clustered index), không cần ghi chú thêm
+      const comment = hasIndex && !c.primaryKey ? `"indexed: ${matchedIndexes.map(i => i.name).join(', ')}"` : '';
+
+      lines.push(`    ${type} ${c.name} ${keyLabel} ${comment}`.trimEnd());
+    });
+    lines.push('  }');
+  });
+
+  return lines.join('\n');
+}
+
+async function renderERDiagram(tables) {
+  const container = document.getElementById('erdContainer');
+
+  if (!tables || tables.length === 0) {
+    container.innerHTML = '<div class="empty">No tables collected</div>';
+    return;
+  }
+
+  const syntax = buildMermaidERSyntax(tables);
+
+  if (!window._mermaidInitialized) {
+    window.mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        fontSize: '13px',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#334155',
+        lineColor: '#64748b',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#0f172a'
+      },
+      er: {
+        // Tăng padding ngang trong mỗi cell để chữ không bị cắt sát viền
+        entityPadding: 20,
+        // Tăng minEntityWidth để mermaid chừa đủ chỗ cho cột dài (vd: "indexed: ...")
+        minEntityWidth: 120
+      }
+    });
+    window._mermaidInitialized = true;
+  }
+
+  try {
+    const { svg } = await window.mermaid.render('erd-svg-' + Date.now(), syntax);
+    container.innerHTML = svg;
+  } catch (e) {
+    container.innerHTML = '<div class="error">Render failed: ' + e.message +
+      '<pre style="margin-top:8px; font-size:11px; color:#64748b">' +
+      escapeHtml(syntax) + '</pre></div>';
+  }
+}
+
 //  Tab switching
 
 function switchTab(tab) {
@@ -260,6 +378,7 @@ function switchTab(tab) {
   // Lazy load nội dung khi switch sang tab tương ứng
   if (tab === 'queries') loadCollectedQueries();
   if (tab === 'schema') loadSchemaSnapshot();
+  if (tab === 'erd') loadERDiagram();
 }
 
 
@@ -411,18 +530,6 @@ function renderPage() {
             onmouseout="this.style.background='#3b82f6'">Tiếp →</button>` : ''}
       </div>
     </div>`;
-}
-
-function switchTab(tab) {
-  // Ẩn tất cả panels
-  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-  // Bỏ active tất cả buttons
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-  // Hiện panel được chọn
-  document.getElementById('tab-' + tab).style.display = 'block';
-  // Active button được chọn
-  event.target.classList.add('active');
 }
 
 function updateSlowQueries(slowQueries) {

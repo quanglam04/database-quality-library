@@ -7,6 +7,10 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
   <link rel="stylesheet" href="/dashboard.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script type="module">
+    import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+    window.mermaid = mermaid;
+  </script>
 </head>
 <body>
 <header>
@@ -38,6 +42,7 @@
   <button class="tab-btn" onclick="switchTab('findings')">Findings</button>
   <button class="tab-btn" onclick="switchTab('queries')">Collected Queries</button>
   <button class="tab-btn" onclick="switchTab('schema')">Schema Snapshot</button>
+  <button class="tab-btn" onclick="switchTab('erd')">ER Diagram</button>
   <button class="tab-btn" onclick="switchTab('ai')">AI</button>
   <button class="tab-btn" onclick="switchTab('project')">Project</button>
 </div>
@@ -121,7 +126,7 @@
     </div>
   </div>
 
-  <!-- Tab: Collected Queries (MỚI) -->
+  <!-- Tab: Collected Queries -->
   <div id="tab-queries" class="tab-panel" style="display:none">
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
@@ -137,7 +142,7 @@
     </div>
   </div>
 
-  <!-- Tab: Schema Snapshot (MỚI) -->
+  <!-- Tab: Schema Snapshot -->
   <div id="tab-schema" class="tab-panel" style="display:none">
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
@@ -148,6 +153,22 @@
         <button class="refresh-btn" onclick="loadSchemaSnapshot()" style="margin-left:auto">↻ Refresh</button>
       </div>
       <div id="schemaSnapshotList">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: ER Diagram (MỚI) -->
+  <div id="tab-erd" class="tab-panel" style="display:none">
+    <div class="card">
+      <div style="display:flex; align-items:center; margin-bottom:16px">
+        <span class="section-title">Entity Relationship Diagram</span>
+        <span style="font-size:12px; color:#64748b; margin-left:8px">
+          Quan hệ Foreign Key giữa các bảng
+        </span>
+        <button class="refresh-btn" onclick="loadERDiagram()" style="margin-left:auto">↻ Refresh</button>
+      </div>
+      <div id="erdContainer" style="overflow-x:auto">
         <div class="empty">Loading...</div>
       </div>
     </div>
