@@ -42,7 +42,6 @@
   <button class="tab-btn" onclick="switchTab('findings')">Findings</button>
   <button class="tab-btn" onclick="switchTab('queries')">Collected Queries</button>
   <button class="tab-btn" onclick="switchTab('schema')">Schema Snapshot</button>
-  <button class="tab-btn" onclick="switchTab('erd')">ER Diagram</button>
   <button class="tab-btn" onclick="switchTab('ai')">AI</button>
   <button class="tab-btn" onclick="switchTab('project')">Project</button>
 </div>
@@ -142,7 +141,7 @@
     </div>
   </div>
 
-  <!-- Tab: Schema Snapshot -->
+  <!-- Tab: Schema Snapshot (giờ render dạng ER Diagram) -->
   <div id="tab-schema" class="tab-panel" style="display:none">
     <div class="card">
       <div style="display:flex; align-items:center; margin-bottom:16px">
@@ -150,25 +149,17 @@
         <span style="font-size:12px; color:#64748b; margin-left:8px">
           DDL được thu thập qua DatabaseMetaData
         </span>
-        <button class="refresh-btn" onclick="loadSchemaSnapshot()" style="margin-left:auto">↻ Refresh</button>
+        <button id="zoomToggleBtn" onclick="toggleZoomMode()"
+                title="Zoom mode — di chuột để phóng to vùng đó"
+                style="margin-left:auto; background:#1e293b; color:#94a3b8;
+                       border:1px solid #334155; padding:6px 12px;
+                       border-radius:6px; cursor:pointer; font-size:12px;
+                       transition:background 0.2s">
+          🔍 Zoom
+        </button>
+        <button class="refresh-btn" onclick="loadERDiagram()" style="margin-left:8px">↻ Refresh</button>
       </div>
-      <div id="schemaSnapshotList">
-        <div class="empty">Loading...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tab: ER Diagram (MỚI) -->
-  <div id="tab-erd" class="tab-panel" style="display:none">
-    <div class="card">
-      <div style="display:flex; align-items:center; margin-bottom:16px">
-        <span class="section-title">Entity Relationship Diagram</span>
-        <span style="font-size:12px; color:#64748b; margin-left:8px">
-          Quan hệ Foreign Key giữa các bảng
-        </span>
-        <button class="refresh-btn" onclick="loadERDiagram()" style="margin-left:auto">↻ Refresh</button>
-      </div>
-      <div id="erdContainer" style="overflow-x:auto">
+      <div id="erdContainer" style="overflow-x:auto; position:relative">
         <div class="empty">Loading...</div>
       </div>
     </div>
