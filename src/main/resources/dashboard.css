@@ -178,3 +178,107 @@ tr:hover td { background: #162032; }
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+
+/* ============================================ */
+/* ER Diagram (mermaid.js) - override màu chữ    */
+/* Mermaid v11 render label bằng foreignObject    */
+/* (HTML thật bên trong SVG), không phải SVG text */
+/* ============================================ */
+
+/* ============================================ */
+/* ROOT CAUSE: mermaid set "fill: #ccc" trực tiếp */
+/* lên chính thẻ <svg id="erd-svg-..."> — toàn bộ */
+/* text/p con kế thừa màu này qua CSS inheritance, */
+/* độ ưu tiên cao hơn mọi class selector bên dưới  */
+/* ID đổi mỗi lần render (Date.now()) nên phải dùng */
+/* attribute selector [id^="erd-svg-"]              */
+/* ============================================ */
+#erdContainer svg[id^="erd-svg-"] {
+  fill: #e2e8f0 !important;
+}
+
+/* Cùng nguyên nhân với fill ở trên, nhưng cho phần tử HTML (foreignObject)
+   mermaid set "color: #ccc" qua ID selector #erd-svg-XXXX .label,
+   độ ưu tiên cao hơn mọi class selector thường */
+#erdContainer svg[id^="erd-svg-"] .label,
+#erdContainer svg[id^="erd-svg-"] .nodeLabel,
+#erdContainer svg[id^="erd-svg-"] .nodeLabel p {
+  color: #e2e8f0 !important;
+}
+
+#erdContainer svg.erDiagram {
+  background: transparent;
+}
+
+/* Toàn bộ label trong foreignObject — tên bảng, tên cột, kiểu, PK/FK, comment */
+#erdContainer .nodeLabel,
+#erdContainer .nodeLabel p {
+  color: #e2e8f0 !important;
+  fill: #e2e8f0 !important;
+}
+
+/* Bắt buộc mọi <p> bên trong foreignObject của ER diagram đều sáng,
+   kể cả khi nằm trong <g> riêng cho phần title bảng */
+#erdContainer svg.erDiagram foreignObject p,
+#erdContainer svg.erDiagram foreignObject span,
+#erdContainer svg.erDiagram foreignObject div {
+  color: #e2e8f0 !important;
+}
+
+/* Riêng tên bảng (title) — sáng nhất để nổi bật hơn row thường
+   Lưu ý: KHÔNG dùng font-weight khác 400 ở đây — mermaid tự tính
+   max-width của cell dựa trên font-weight mặc định lúc layout,
+   đổi font-weight sau khi layout xong sẽ làm text rộng hơn ô chứa
+   và bị cắt bởi overflow:hidden của foreignObject */
+#erdContainer svg.erDiagram .er.entityLabel,
+#erdContainer svg.erDiagram g[id*="entity"] foreignObject p {
+  color: #0a85ff !important;
+  opacity: 1 !important;
+}
+
+
+
+/* Phòng trường hợp opacity bị set ở tầng <g> cha bao quanh cả foreignObject */
+#erdContainer svg.erDiagram g[id*="entity"],
+#erdContainer svg.erDiagram g[id*="entity"] foreignObject {
+  opacity: 1 !important;
+}
+
+/* Background từng row (chẵn/lẻ) - cho tương phản rõ với chữ sáng ở trên */
+#erdContainer .row-rect-even rect,
+#erdContainer .row-rect-even path {
+  fill: #16213a !important;
+}
+#erdContainer .row-rect-odd rect,
+#erdContainer .row-rect-odd path {
+  fill: #0f172a !important;
+}
+
+/* Background header bảng */
+#erdContainer .er.entityBox {
+  fill: #1e293b !important;
+}
+
+/* Viền bảng + viền row */
+#erdContainer .er.entityBox,
+#erdContainer .row-rect-even path,
+#erdContainer .row-rect-odd path {
+  stroke: #334155 !important;
+}
+
+/* Label trên đường nối quan hệ (vd: USER_ID) */
+#erdContainer .relationshipLabelBox {
+  fill: #0f172a !important;
+  fill-opacity: 0.9 !important;
+}
+#erdContainer .relationshipLabel,
+#erdContainer .edgeLabel .nodeLabel {
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+}
+
+/* Đường nối FK */
+#erdContainer .er.relationshipLine {
+  stroke: #64748b !important;
+}
