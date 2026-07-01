@@ -5,8 +5,8 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
-import com.dbquality.constant.Constant;
 import com.dbquality.util.SQLFilter;
+import com.dbquality.util.StackTraceUtil;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -40,26 +40,6 @@ public class QualityPreparedStatement implements PreparedStatement {
     this.config = config;
   }
 
-
-  private String captureCalledFrom() {
-    StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-    for (StackTraceElement frame : stack) {
-      String className = frame.getClassName();
-
-      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
-          .anyMatch(className::startsWith);
-      if (isInternal) continue;
-
-      boolean isProxy = Constant.INTERNAL_CONTAINS_PATTERNS.stream()
-          .anyMatch(className::contains);
-      if (isProxy) continue;
-
-      return className + ":" + frame.getLineNumber()
-          + " -> " + frame.getMethodName() + "()";
-    }
-    return "unknown";
-  }
-
   /**
    * Ghi nhận một lần thực thi SQL vào cả 2 store.
    * Hot path — phải nhanh, không block.
@@ -67,7 +47,7 @@ public class QualityPreparedStatement implements PreparedStatement {
   private void record(long executionTime, boolean success, String errorMessage) {
     if (!SQLFilter.isApplicationSQL(sql)) return;
 
-    String calledFrom = captureCalledFrom();
+    String calledFrom = StackTraceUtil.captureCalledFrom();
 
     // 1. Lưu vào SQLContext (legacy — backward compat)
     sqlContext.add(SQLRecord.builder()

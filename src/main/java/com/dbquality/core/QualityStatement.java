@@ -4,8 +4,8 @@ import com.dbquality.collector.SQLContext;
 import com.dbquality.collector.SQLRecord;
 import com.dbquality.config.QualityConfig;
 
-import com.dbquality.constant.Constant;
 import com.dbquality.util.SQLFilter;
+import com.dbquality.util.StackTraceUtil;
 import java.sql.*;
 import java.time.Instant;
 import java.util.Collections;
@@ -154,35 +154,13 @@ public class QualityStatement implements Statement {
         .parameters(Collections.emptyMap())
         .executionTime(executionTime)
         .timestamp(Instant.now())
-        .calledFrom(captureCalledFrom())
+        .calledFrom(StackTraceUtil.captureCalledFrom())
         .success(success)
         .errorMessage(errorMessage)
         .build());
   }
 
-  private String captureCalledFrom() {
-    StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-    for (StackTraceElement frame : stack) {
-      String className = frame.getClassName();
-
-      // Skip internal prefixes (startsWith)
-      boolean isInternal = Constant.INTERNAL_PREFIXES.stream()
-          .anyMatch(className::startsWith);
-      if (isInternal) continue;
-
-      // Skip runtime-generated proxy classes (contains)
-      boolean isProxy = Constant.INTERNAL_CONTAINS_PATTERNS.stream()
-          .anyMatch(className::contains);
-      if (isProxy) continue;
-
-      return className + ":" + frame.getLineNumber()
-          + " -> " + frame.getMethodName() + "()";
-    }
-    return "unknown";
-  }
-
   //  Delegate các method còn lại về original
-
   @Override public void close() throws SQLException { original.close(); }
   @Override public int getMaxFieldSize() throws SQLException { return original.getMaxFieldSize(); }
   @Override public void setMaxFieldSize(int max) throws SQLException { original.setMaxFieldSize(max); }
