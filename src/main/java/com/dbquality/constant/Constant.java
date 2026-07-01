@@ -77,8 +77,10 @@ public class Constant {
       "com.dbquality.core.QualityConnection.",
       "com.dbquality.core.QualityPreparedStatement",
       "com.dbquality.collector.",
-      "com.dbquality.config."
-  );
+      "com.dbquality.config.",
+      "com.dbquality.analysis",
+      "com.dbquality.util"
+      );
 
   public static final List<String> INTERNAL_CONTAINS_PATTERNS = List.of(
       "$HibernateProxy$",     // Hibernate lazy loading proxy
